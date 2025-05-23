@@ -1,0 +1,189 @@
+  <defs>
+    <!-- Tech Noir (Inspired by X-Pro II) -->
+    <filter id="techNoir">
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.5" />
+        <feFuncG type="linear" slope="1.2" />
+        <feFuncB type="linear" slope="1.1" />
+      </feComponentTransfer>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur" />
+      <feOffset dx="0" dy="0" result="offsetBlur" />
+      <feFlood flood-color="black" result="color" />
+      <feComposite in2="offsetBlur" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Neon Surge (Inspired by Lo-Fi) -->
+    <filter id="neonSurge">
+      <feColorMatrix type="matrix" values="1.2 0 0 0 0
+                                           0 1.1 0 0 0
+                                           0 0 1.5 0 0
+                                           0 0 0 1 0" />
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.2" intercept="-0.2" />
+        <feFuncG type="linear" slope="1.2" intercept="-0.2" />
+        <feFuncB type="linear" slope="1.2" intercept="-0.2" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- HackerGlow (Inspired by Clarendon) -->
+    <filter id="hackerGlow">
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.5" intercept="0.2" />
+        <feFuncG type="linear" slope="1.5" intercept="0.2" />
+        <feFuncB type="linear" slope="1.5" intercept="0.2" />
+      </feComponentTransfer>
+      <feGaussianBlur stdDeviation="2" result="blurred" />
+      <feMerge>
+        <feMergeNode in="blurred" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Binary Frost (Inspired by Hudson) -->
+    <filter id="binaryFrost">
+      <feColorMatrix type="matrix" values="1.0 0.0 0.0 0 0
+                                           0.0 1.0 0.0 0 0
+                                           0.0 0.0 1.5 0 0
+                                           0.0 0.0 0.0 1 0" />
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="0.8" />
+        <feFuncG type="linear" slope="0.8" />
+        <feFuncB type="linear" slope="0.9" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Byte Crush (Inspired by Juno) -->
+    <filter id="byteCrush">
+      <feColorMatrix type="matrix" values="1.5 0.2 0.2 0 0
+                                           0.2 1.2 0.2 0 0
+                                           0.2 0.2 1.0 0 0
+                                           0   0   0   1 0" />
+      <feGaussianBlur stdDeviation="1" result="blurred" />
+      <feMerge>
+        <feMergeNode in="blurred" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Data Drift (Inspired by Earlybird) -->
+    <filter id="dataDrift">
+      <feColorMatrix type="matrix" values="1.2 0.9 0.5 0 0
+                                           0.9 1.0 0.6 0 0
+                                           0.6 0.6 0.9 0 0
+                                           0   0   0   1 0" />
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="0.9" />
+        <feFuncG type="linear" slope="0.9" />
+        <feFuncB type="linear" slope="0.9" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Circuit Pulse (Inspired by Valencia) -->
+    <filter id="circuitPulse">
+      <feColorMatrix type="matrix" values="1.4 0.4 0.2 0 0
+                                           0.4 1.2 0.4 0 0
+                                           0.2 0.4 1.0 0 0
+                                           0   0   0   1 0" />
+      <feGaussianBlur stdDeviation="0.8" result="blurred" />
+      <feMerge>
+        <feMergeNode in="blurred" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Quantum Burst (Inspired by Amaro) -->
+    <filter id="quantumBurst">
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.3" intercept="0.2" />
+        <feFuncG type="linear" slope="1.3" intercept="0.2" />
+        <feFuncB type="linear" slope="1.3" intercept="0.2" />
+      </feComponentTransfer>
+      <feColorMatrix type="matrix" values="0.9 0 0 0 0
+                                           0 0.9 0 0 0
+                                           0 0 0.9 0 0
+                                           0 0 0 1 0" />
+    </filter>
+
+    <!-- Additional TikTok-like Effects -->
+    <!-- TV Turn-Off Effect -->
+    <filter id="tvTurnOff">
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="1 0">
+          <animate attributeName="tableValues" values="1;0.2;0" dur="1s" begin="0s" repeatCount="1" fill="freeze"/>
+        </feFuncA>
+      </feComponentTransfer>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0 0">
+        <animate attributeName="stdDeviation" values="0 0;0 5;0 100" dur="1s" begin="0s" fill="freeze" repeatCount="1"/>
+      </feGaussianBlur>
+    </filter>
+
+    <!-- Color Pop Filter -->
+    <filter id="colorPop">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0 
+                                           0.33 0.33 0.33 0 0 
+                                           0.33 0.33 0.33 0 0 
+                                           0    0    0    1 0" result="grayscale" />
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.5" />
+        <feFuncG type="linear" slope="0.5" />
+        <feFuncB type="linear" slope="0.5" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Grayscale Filter -->
+    <filter id="grayscale">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0    0    0    1 0" />
+    </filter>
+
+    <!-- High Contrast Black & White -->
+    <filter id="highContrastBW">
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="2" intercept="-1" />
+        <feFuncG type="linear" slope="2" intercept="-1" />
+        <feFuncB type="linear" slope="2" intercept="-1" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Soft Black & White -->
+    <filter id="softBW">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0    0    0    1 0" />
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.1" />
+        <feFuncG type="linear" slope="1.1" />
+        <feFuncB type="linear" slope="1.1" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Black & White with Blur -->
+    <filter id="bwWithBlur">
+     
+
+
+
+ <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0    0    0    1 0" />
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+
+    <!-- Sharp Black & White -->
+    <filter id="sharpBW">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0.33 0.33 0.33 0 0
+                                           0    0    0    1 0" />
+      <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 9 -1 -1 -1 -1" />
+    </filter>
+
+  </defs>

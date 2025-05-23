@@ -6,8 +6,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vite App</title>
   </head>
-  <body>
+  <body class="dark">
+   
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+    <svg width="0" height="0" style="position:absolute;">
+      <defs>
+        <filter id="techNoir">
+          <feColorMatrix type="matrix" values="1.5 0 0 0 0  0 1.5 0 0 0  0 0 1.5 0 0  0 0 0 1 0"/>
+          <feComponentTransfer>
+            <feFuncR type="gamma" amplitude="1.2" exponent="0.8"/>
+            <feFuncG type="gamma" amplitude="1.1" exponent="0.9"/>
+            <feFuncB type="gamma" amplitude="1.3" exponent="0.7"/>
+          </feComponentTransfer>
+        </filter>
+        <filter id="neonSurge">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+          <feColorMatrix type="matrix" values="1 0 0 0 0.2  0 1 0 0 0.2  0 0 1 0 0.2  0 0 0 1 0"/>
+        </filter>
+        <filter id="hackerGlow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+          <feColorMatrix type="matrix" values="0 1 0 0 0  0 1 0 0 0  0 1 0 0 0  0 0 0 1 0"/>
+        </filter>
+        <filter id="binaryFrost">
+          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0.2  0 0 1 0 0.5  0 0 0 1 0"/>
+          <feGaussianBlur stdDeviation="1.5"/>
+        </filter>
+        <filter id="byteCrush">
+          <feComponentTransfer>
+            <feFuncR type="discrete" tableValues="0 0.5 1"/>
+            <feFuncG type="discrete" tableValues="0 0.5 1"/>
+            <feFuncB type="discrete" tableValues="0 0.5 1"/>
+          </feComponentTransfer>
+        </filter>
+        <filter id="dataDrift">
+          <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="2" result="turb"/>
+          <feDisplacementMap in2="turb" in="SourceGraphic" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="circuitPulse">
+          <feColorMatrix type="matrix" values="1 0 0 0 0.1  0 1 0 0 0.1  0 0 1 0 0.1  0 0 0 1 0"/>
+          <feGaussianBlur stdDeviation="1"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="2"/>
+          </feComponentTransfer>
+        </filter>
+        <filter id="quantumBurst">
+          <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="turb"/>
+          <feDisplacementMap in2="turb" in="SourceGraphic" scale="20" xChannelSelector="R" yChannelSelector="B"/>
+          <feColorMatrix type="matrix" values="1.2 0 0 0 0  0 1.2 0 0 0  0 0 1.2 0 0  0 0 0 1 0"/>
+        </filter>
+        <filter id="colorPop">
+          <feColorMatrix type="matrix" values="2 0 0 0 -0.5  0 2 0 0 -0.5  0 0 2 0 -0.5  0 0 0 1 0"/>
+        </filter>
+        <filter id="highContrastBW">
+          <feColorMatrix type="matrix" values="1.5 1.5 1.5 0 -1  1.5 1.5 1.5 0 -1  1.5 1.5 1.5 0 -1  0 0 0 1 0"/>
+        </filter>
+        <filter id="softBW">
+          <feColorMatrix type="saturate" values="0.2"/>
+          <feGaussianBlur stdDeviation="1"/>
+        </filter>
+        <filter id="bwWithBlur">
+          <feColorMatrix type="saturate" values="0"/>
+          <feGaussianBlur stdDeviation="2"/>
+        </filter>
+        <filter id="sharpBW">
+          <feColorMatrix type="saturate" values="0"/>
+          <feComponentTransfer>
+            <feFuncR type="linear" slope="2"/>
+            <feFuncG type="linear" slope="2"/>
+            <feFuncB type="linear" slope="2"/>
+          </feComponentTransfer>
+        </filter>
+      </defs>
+    </svg>
   </body>
 </html>

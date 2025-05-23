@@ -1,47 +1,51 @@
-<script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+import VideoRecorder from './components/VideoRecorder.vue';
+import FilterSelector from './components/FilterSelector.vue';
+import DownloadButton from './components/DownloadButton.vue';
+
+export default defineComponent({
+  name: 'App',
+  components: {
+    VideoRecorder,
+    FilterSelector,
+    DownloadButton,
+  },
+  setup() {
+    const videoUrl = ref<string | null>(null);
+
+    const handleRecordingComplete = (url: string) => {
+      videoUrl.value = url;
+    };
+   
+
+    return {
+      videoUrl,
+      handleRecordingComplete,
+    };
+  },
+});
 </script>
-
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-    </div>
-  </header>
-
-  <main>
-    <TheWelcome />
-  </main>
+  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+    <h1>Vue Video Filters</h1>
+    <VideoRecorder @recordingComplete="handleRecordingComplete" />
+    <DownloadButton v-if="videoUrl" :videoUrl="videoUrl" />
+  </div>
 </template>
 
-<style scoped>
-header {
-  line-height: 1.5;
+<style>
+.app-container {
+  min-height: 100vh;
+  background: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
 }
 </style>
