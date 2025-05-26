@@ -205,7 +205,7 @@ export default defineComponent({
           // Use ideal video constraints for camera
           userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
           // Use ideal video constraints for screen (if supported)
-          const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: VIDEO_CONSTRAINTS, audio: true }); 
+          const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: VIDEO_CONSTRAINTS, audio: AUDIO_CONSTRAINTS }); 
           screenVideoStream.value = new MediaStream(fullScreenStream.getVideoTracks()); 
           fullScreenStream.getAudioTracks().forEach(t => t.stop()); 
 
