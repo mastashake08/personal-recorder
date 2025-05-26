@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/personal-recorder/dev-sw.js?dev-sw', { scope: '/personal-recorder/', type: 'classic' })

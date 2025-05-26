@@ -1,10 +1,32 @@
 <template>
-  <div class="video-recorder flex flex-col items-center bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-lg p-6 w-full max-w-lg">
-    <canvas ref="canvasRef" class="border-2 border-gray-300 rounded-lg mb-4 shadow" width="640" height="480"></canvas>
-    <div class="flex gap-2 mb-4">
+  <div class="video-recorder flex flex-col items-center bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-lg p-6 w-full max-w-2xl"> 
+    <div class="w-full aspect-video bg-gray-900 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden mb-4">
+      <canvas ref="canvasRef" class="w-full h-full"></canvas>
+    </div>
+
+    <div class="mb-4 flex items-center"> 
+      <input 
+        type="checkbox" 
+        id="screenShareToggle" 
+        v-model="recordScreenAndCamera" 
+        :disabled="isRecording" 
+        class="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
+      >
+      <label for="screenShareToggle" class="text-sm font-medium text-gray-700 dark:text-gray-300">Record Screen + Camera (switchable)</label>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-2 mb-4"> 
+
       <button @click="startRecording" class="btn btn-blue" :disabled="isRecording">Start Recording</button>
       <button @click="stopRecording" class="btn btn-red" :disabled="!isRecording">Stop Recording</button>
-      <button @click="switchMedia" class="btn btn-yellow" :disabled="false">Switch Media</button>
+      <button 
+        @click="switchVideoSource" 
+        class="btn btn-yellow" 
+        :disabled="!isRecording || !recordScreenAndCamera"
+        title="Switch between camera and screen video"
+      >
+        Switch Video Source
+      </button>
     </div>
     <FilterSelector @filter-applied="applyFilter" :filters="filters"/>
     <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
@@ -12,11 +34,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onUnmounted, shallowRef } from 'vue';
+import { defineComponent, ref, onMounted, onUnmounted, shallowRef } from 'vue';
 import FilterSelector from './FilterSelector.vue';
-// Assuming DownloadButton is the component from the previous context (ffmpeg_download_button_vue_fix_vite_worker)
-// You'll need to ensure its path is correct.
 import DownloadButton from './DownloadButton.vue';
+
+const CANVAS_RECORDING_WIDTH = 1920; // User updated
+const CANVAS_RECORDING_HEIGHT = 1080; // User updated
 
 export default defineComponent({
   name: 'VideoRecorder',
@@ -28,43 +51,46 @@ export default defineComponent({
     const videoEl = document.createElement('video');
     videoEl.autoplay = true;
     videoEl.playsInline = true;
-    videoEl.muted = true; // Mute playback to avoid feedback loop if mic is captured
+    videoEl.muted = true;
 
     const canvasRef = ref<HTMLCanvasElement | null>(null);
-    const mediaRecorder = shallowRef<MediaRecorder | null>(null); // shallowRef for non-reactive MediaRecorder
+    const mediaRecorder = shallowRef<MediaRecorder | null>(null);
     const recordedChunks = ref<Blob[]>([]);
     const isRecording = ref(false);
     const videoUrl = ref<string | null>(null);
-    const currentSourceStream = shallowRef<MediaStream | null>(null); // The current camera/screen stream
-    const isScreenRecording = ref(false);
+    
+    const recordScreenAndCamera = ref(false); 
+    const userVideoStream = shallowRef<MediaStream | null>(null);
+    const screenVideoStream = shallowRef<MediaStream | null>(null); 
+    const audioStream = shallowRef<MediaStream | null>(null); 
+    const activeDisplaySource = ref<'camera' | 'screen'>('camera');
+
     const animationFrameId = ref<number | null>(null);
 
     const filterOptions = [
-      { id: 'none', name: 'None' },
-      { id: 'grayscale', name: 'Grayscale' },
-      { id: 'invert', name: 'Invert' },
-      { id: 'sepia', name: 'Sepia' },
-      { id: 'blur', name: 'Blur' },
-      { id: 'sharpen', name: 'Sharpen' },
-      { id: 'techNoir', name: 'Tech Noir (SVG)' },
-      { id: 'neonSurge', name: 'Neon Surge (SVG)' },
-      { id: 'hackerGlow', name: 'HackerGlow (SVG)' },
-      { id: 'binaryFrost', name: 'Binary Frost (SVG)' },
-      { id: 'byteCrush', name: 'Byte Crush (SVG)' },
-      { id: 'dataDrift', name: 'Data Drift (SVG)' },
-      { id: 'circuitPulse', name: 'Circuit Pulse (SVG)' },
-      { id: 'quantumBurst', name: 'Quantum Burst (SVG)' },
-      { id: 'colorPop', name: 'Color Pop (SVG)' },
-      { id: 'highContrastBW', name: 'High Contrast B&W (SVG)' },
-      { id: 'softBW', name: 'Soft B&W (SVG)' },
-      { id: 'bwWithBlur', name: 'B&W with Blur (SVG)' },
+      { id: 'none', name: 'None' }, { id: 'grayscale', name: 'Grayscale' },
+      { id: 'invert', name: 'Invert' }, { id: 'sepia', name: 'Sepia' },
+      { id: 'blur', name: 'Blur' }, { id: 'sharpen', name: 'Sharpen' },
+      { id: 'techNoir', name: 'Tech Noir (SVG)' }, { id: 'neonSurge', name: 'Neon Surge (SVG)' },
+      { id: 'hackerGlow', name: 'HackerGlow (SVG)' }, { id: 'binaryFrost', name: 'Binary Frost (SVG)' },
+      { id: 'byteCrush', name: 'Byte Crush (SVG)' }, { id: 'dataDrift', name: 'Data Drift (SVG)' },
+      { id: 'circuitPulse', name: 'Circuit Pulse (SVG)' }, { id: 'quantumBurst', name: 'Quantum Burst (SVG)' },
+      { id: 'colorPop', name: 'Color Pop (SVG)' }, { id: 'highContrastBW', name: 'High Contrast B&W (SVG)' },
+      { id: 'softBW', name: 'Soft B&W (SVG)' }, { id: 'bwWithBlur', name: 'B&W with Blur (SVG)' },
       { id: 'sharpBW', name: 'Sharp B&W (SVG)' },
     ];
     const filters = ref(filterOptions);
     const selectedFilter = ref('none');
 
+    onMounted(() => {
+      if (canvasRef.value) {
+        canvasRef.value.width = CANVAS_RECORDING_WIDTH;
+        canvasRef.value.height = CANVAS_RECORDING_HEIGHT;
+      }
+    });
+
     const drawToCanvas = () => {
-      if (!canvasRef.value || videoEl.paused || videoEl.ended) {
+      if (!canvasRef.value || videoEl.paused || videoEl.ended || !videoEl.srcObject) {
         animationFrameId.value = requestAnimationFrame(drawToCanvas);
         return;
       }
@@ -72,30 +98,22 @@ export default defineComponent({
       if (!ctx) return;
 
       ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-      ctx.save(); // Save context state
+      ctx.save(); 
 
-      // Apply CSS filters
       if (selectedFilter.value === 'grayscale') ctx.filter = 'grayscale(100%)';
       else if (selectedFilter.value === 'invert') ctx.filter = 'invert(100%)';
       else if (selectedFilter.value === 'sepia') ctx.filter = 'sepia(100%)';
       else if (selectedFilter.value === 'blur') ctx.filter = 'blur(4px)';
-      // Apply SVG filters
-      else if ([
-          'techNoir', 'neonSurge', 'hackerGlow', 'binaryFrost', 'byteCrush', 'dataDrift',
-          'circuitPulse', 'quantumBurst', 'colorPop', 'highContrastBW', 'softBW',
-          'bwWithBlur', 'sharpBW'
-        ].includes(selectedFilter.value)) {
+      else if (filterOptions.some(f => f.id === selectedFilter.value && f.name.includes('(SVG)'))) {
         ctx.filter = `url(#${selectedFilter.value})`;
       }
-      // Note: 'sharpen' is handled after drawing if it's a manual ImageData manipulation
-
+      
       ctx.drawImage(videoEl, 0, 0, canvasRef.value.width, canvasRef.value.height);
-      ctx.restore(); // Restore context state (clears filter)
+      ctx.restore(); 
 
-      // Apply manual sharpen filter (if selected)
       if (selectedFilter.value === 'sharpen') {
         const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height);
-        applySharpen(imageData); // This function modifies imageData in place
+        applySharpen(imageData); 
         ctx.putImageData(imageData, 0, 0);
       }
       
@@ -129,7 +147,7 @@ export default defineComponent({
           output[dstOff] = Math.max(0, Math.min(255, r));
           output[dstOff + 1] = Math.max(0, Math.min(255, g));
           output[dstOff + 2] = Math.max(0, Math.min(255, b));
-          output[dstOff + 3] = src[dstOff + 3]; // Alpha
+          output[dstOff + 3] = src[dstOff + 3];
         }
       }
       for (let i = 0; i < src.length; i++) {
@@ -137,47 +155,77 @@ export default defineComponent({
       }
     }
 
-    const startRecording = async () => {
-      if (!canvasRef.value) return;
-      videoUrl.value = null; // Clear previous recording URL
+    const cleanupStreams = () => {
+      userVideoStream.value?.getTracks().forEach(track => track.stop());
+      screenVideoStream.value?.getTracks().forEach(track => track.stop());
+      audioStream.value?.getTracks().forEach(track => track.stop());
+      userVideoStream.value = null;
+      screenVideoStream.value = null;
+      audioStream.value = null;
+      videoEl.srcObject = null; 
+    };
 
-      let sourceStream: MediaStream;
+    const startRecording = async () => {
+      if (!canvasRef.value) { alert("Canvas is not ready."); return; }
+      if (canvasRef.value.width !== CANVAS_RECORDING_WIDTH || canvasRef.value.height !== CANVAS_RECORDING_HEIGHT) {
+        canvasRef.value.width = CANVAS_RECORDING_WIDTH;
+        canvasRef.value.height = CANVAS_RECORDING_HEIGHT;
+      }
+      videoUrl.value = null;
+      cleanupStreams(); 
+
       try {
-        if (isScreenRecording.value) {
-          const screenCaptureStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-          try {
-            const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            // Combine screen video with mic audio. Original screen audio is discarded.
-            sourceStream = new MediaStream([
-              ...screenCaptureStream.getVideoTracks(),
-              ...micStream.getAudioTracks()
-            ]);
-            screenCaptureStream.getAudioTracks().forEach(t => t.stop()); // Stop original screen audio
-          } catch (micError) {
-            console.warn('Mic not available for screen recording, using screen audio if present.', micError);
-            sourceStream = screenCaptureStream; // Fallback to screenStream (video + system audio)
+        audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+        if (recordScreenAndCamera.value) {
+          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }); 
+          screenVideoStream.value = new MediaStream(fullScreenStream.getVideoTracks()); 
+          fullScreenStream.getAudioTracks().forEach(t => t.stop()); 
+
+          if (!userVideoStream.value || !screenVideoStream.value) {
+            throw new Error('Failed to get both camera and screen video streams.');
           }
+          videoEl.srcObject = userVideoStream.value; 
+          activeDisplaySource.value = 'camera';
         } else {
-          sourceStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          if (!userVideoStream.value) {
+            throw new Error('Failed to get camera stream.');
+          }
+          videoEl.srcObject = userVideoStream.value;
+          activeDisplaySource.value = 'camera';
+          screenVideoStream.value = null; 
         }
       } catch (err) {
-        console.error('Failed to get media stream for recording:', err);
-        alert('Could not start media stream. Please check permissions.');
+        console.error('Failed to get media streams:', err);
+        alert(`Could not start media streams. Please check permissions. Error: ${err instanceof Error ? err.message : String(err)}`);
+        cleanupStreams();
         return;
       }
       
-      currentSourceStream.value = sourceStream;
-      videoEl.srcObject = sourceStream;
-      await videoEl.play().catch(e => console.error("Error playing video source:", e));
+      try {
+        await videoEl.play();
+      } catch (playError) {
+          console.error("Error playing video source:", playError);
+          alert("Could not play video source.");
+          cleanupStreams();
+          return;
+      }
+
 
       if (animationFrameId.value) cancelAnimationFrame(animationFrameId.value);
       drawToCanvas();
 
-      const streamFromCanvas = canvasRef.value.captureStream(30); // 30 FPS
-      sourceStream.getAudioTracks().forEach((track) => {
-        streamFromCanvas.addTrack(track.clone()); // Clone audio track to manage its lifecycle independently
-      });
-
+      const streamFromCanvas = canvasRef.value.captureStream(30);
+      if (audioStream.value) {
+        audioStream.value.getAudioTracks().forEach((track) => {
+          streamFromCanvas.addTrack(track.clone());
+        });
+      } else {
+        console.warn("No audio stream (microphone) available to add to recording.");
+      }
+      
       mediaRecorder.value = new MediaRecorder(streamFromCanvas, { mimeType: 'video/webm;codecs=vp9,opus' });
       recordedChunks.value = [];
       mediaRecorder.value.ondataavailable = (event) => {
@@ -188,7 +236,6 @@ export default defineComponent({
       mediaRecorder.value.onstop = () => {
         const blob = new Blob(recordedChunks.value, { type: 'video/webm' });
         videoUrl.value = URL.createObjectURL(blob);
-        // Stop tracks on the streamFromCanvas as they are clones
         streamFromCanvas.getTracks().forEach(track => track.stop());
       };
       mediaRecorder.value.start();
@@ -199,113 +246,75 @@ export default defineComponent({
       if (mediaRecorder.value && mediaRecorder.value.state !== "inactive") {
         mediaRecorder.value.stop();
       }
-      currentSourceStream.value?.getTracks().forEach(track => track.stop());
+      cleanupStreams(); 
+      
       isRecording.value = false;
       if (animationFrameId.value) {
         cancelAnimationFrame(animationFrameId.value);
         animationFrameId.value = null;
       }
-      // Clear canvas
       const ctx = canvasRef.value?.getContext('2d');
       if (ctx && canvasRef.value) {
           ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
       }
     };
 
-    const switchMedia = async () => {
-      if (!isRecording.value) {
-        // If not recording, just toggle the flag for the next recording session
-        isScreenRecording.value = !isScreenRecording.value;
-        console.log(`Media source for next recording set to: ${isScreenRecording.value ? 'Screen' : 'Camera'}`);
+    const switchVideoSource = async () => {
+      if (!isRecording.value || !recordScreenAndCamera.value) {
+        console.warn('Cannot switch video source: Not recording or not in screen+camera mode.');
+        return;
+      }
+      if (!userVideoStream.value || !screenVideoStream.value) {
+        console.error('Cannot switch: User or screen video stream is missing. This should not happen if recording in this mode.');
         return;
       }
 
-      // If currently recording, attempt to switch sources live
-      console.log('Attempting to switch media while recording...');
-      const oldIsScreenRecordingFlag = isScreenRecording.value;
-      isScreenRecording.value = !isScreenRecording.value; // Tentative switch
-
-      let newSourceMediaStream: MediaStream | null = null;
-      try {
-        if (isScreenRecording.value) {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-          try {
-            const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            newSourceMediaStream = new MediaStream([
-              ...screenStream.getVideoTracks(),
-              ...micStream.getAudioTracks()
-            ]);
-            screenStream.getAudioTracks().forEach(t => t.stop()); // Stop original screen audio tracks
-          } catch (micError) {
-            console.warn('Mic not available for screen share switch, using screen audio if present.', micError);
-            newSourceMediaStream = screenStream;
-          }
-        } else {
-          newSourceMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        }
-      } catch (err) {
-        console.error('Failed to get new media stream for switching:', err);
-        isScreenRecording.value = oldIsScreenRecordingFlag; // Revert flag on failure
-        alert('Failed to switch media source. Please check permissions.');
-        return;
+      let newSrcObject: MediaStream | null = null;
+      if (activeDisplaySource.value === 'camera') {
+        newSrcObject = screenVideoStream.value;
+        activeDisplaySource.value = 'screen';
+        console.log('Switched display to Screen.');
+      } else {
+        newSrcObject = userVideoStream.value;
+        activeDisplaySource.value = 'camera';
+        console.log('Switched display to Camera.');
       }
-
-      if (!newSourceMediaStream || !currentSourceStream.value || !mediaRecorder.value || !mediaRecorder.value.stream) {
-        console.error('Cannot switch media: critical objects missing or stream not active.');
-        isScreenRecording.value = oldIsScreenRecordingFlag; // Revert flag
-        newSourceMediaStream?.getTracks().forEach(track => track.stop()); // Clean up newly acquired stream
-        return;
-      }
-
-      const oldLiveSourceStream = currentSourceStream.value;
-      const activeRecordedStream = mediaRecorder.value.stream as MediaStream;
-
-      // 1. Update video element source (this will update canvas via drawToCanvas)
-      videoEl.srcObject = newSourceMediaStream;
-      await videoEl.play().catch(e => console.error("Error playing new video source:", e));
-
-      // 2. Update audio tracks on the stream being recorded by MediaRecorder
-      // Remove all old audio tracks from activeRecordedStream (these are clones)
-      activeRecordedStream.getAudioTracks().forEach(track => {
-        activeRecordedStream.removeTrack(track);
-        track.stop(); // Stop the cloned track
-      });
-
-      // Add new audio tracks (cloned) from newSourceMediaStream to activeRecordedStream
-      newSourceMediaStream.getAudioTracks().forEach(newAudioTrack => {
-        activeRecordedStream.addTrack(newAudioTrack.clone());
-      });
       
-      // 3. Stop all tracks of the old live source stream
-      oldLiveSourceStream.getTracks().forEach(track => track.stop());
-
-      // 4. Update currentSourceStream reference to the new live source
-      currentSourceStream.value = newSourceMediaStream;
-
-      console.log('Media switched successfully while recording.');
+      if (videoEl.srcObject !== newSrcObject) { 
+        videoEl.srcObject = newSrcObject;
+        try {
+          await videoEl.play();
+        } catch (playError) {
+            console.error("Error playing switched video source:", playError);
+        }
+      }
     };
-
+    
     const applyFilter = (filter: string) => {
       selectedFilter.value = filter;
     };
 
     onUnmounted(() => {
-      stopRecording(); // Ensure resources are released
+      if (isRecording.value) { 
+        stopRecording();
+      } else { 
+        cleanupStreams();
+      }
       if (animationFrameId.value) {
         cancelAnimationFrame(animationFrameId.value);
       }
-      videoEl.srcObject = null; // Clear video element source
     });
 
     return {
-      canvasRef, // Renamed from canvas to avoid conflict with potential HTML element
+      canvasRef, 
       startRecording,
       stopRecording,
-      switchMedia,
+      switchVideoSource,
       filters,
       applyFilter,
       videoUrl,
       isRecording,
+      recordScreenAndCamera, 
     };
   },
 });
