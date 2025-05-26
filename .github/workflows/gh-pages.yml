@@ -41,7 +41,7 @@ jobs:
 
       - name: Build project
         # Pass the repository name as an environment variable for vite.config.js
-        run: GITHUB_REPOSITORY=${{ github.repository }} npm run build # Or 'yarn build'
+        run: GITHUB_REPOSITORY=${{ github.repository }} npm run build-only # Or 'yarn build'
         env:
           NODE_ENV: production # Explicitly set NODE_ENV for the build
 
