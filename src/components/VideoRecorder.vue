@@ -48,6 +48,23 @@ import DownloadButton from './DownloadButton.vue';
 const CANVAS_RECORDING_WIDTH = 1920;
 const CANVAS_RECORDING_HEIGHT = 1080;
 
+const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
+  width: { ideal: 2688 },
+  height: { ideal: 1520 },
+  frameRate: { ideal: 60 },
+  facingMode: { ideal: "user" },
+  aspectRatio: { ideal: 16 / 9 },
+};
+
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: { ideal: true },
+  noiseSuppression: { ideal: true },
+  autoGainControl: { ideal: true },
+  channelCount: { ideal: 2 },
+  sampleSize: { ideal: 24 },
+  sampleRate: { ideal: 48000 }
+};
+
 export default defineComponent({
   name: 'VideoRecorder',
   components: {
@@ -181,11 +198,14 @@ export default defineComponent({
       cleanupStreams(); 
 
       try {
-        audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        // Use ideal audio constraints
+        audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: false });
 
         if (recordScreenAndCamera.value) {
-          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }); 
+          // Use ideal video constraints for camera
+          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
+          // Use ideal video constraints for screen (if supported)
+          const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: VIDEO_CONSTRAINTS, audio: true }); 
           screenVideoStream.value = new MediaStream(fullScreenStream.getVideoTracks()); 
           fullScreenStream.getAudioTracks().forEach(t => t.stop()); 
 
@@ -195,7 +215,7 @@ export default defineComponent({
           videoEl.srcObject = userVideoStream.value; 
           activeDisplaySource.value = 'camera';
         } else {
-          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
           if (!userVideoStream.value) {
             throw new Error('Failed to get camera stream.');
           }
@@ -223,7 +243,8 @@ export default defineComponent({
       if (animationFrameId.value) cancelAnimationFrame(animationFrameId.value);
       drawToCanvas();
 
-      const streamFromCanvas = canvasRef.value.captureStream(30);
+      const streamFromCanvas = canvasRef.value.captureStream(60);
+      console.log("Canvas stream created:", streamFromCanvas);
       if (audioStream.value) {
         audioStream.value.getAudioTracks().forEach((track) => {
           streamFromCanvas.addTrack(track.clone());
