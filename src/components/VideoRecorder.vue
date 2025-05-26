@@ -1,37 +1,42 @@
 <template>
-  <div class="video-recorder flex flex-col items-center bg-gray-900/80 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl">
-    <div class="w-full aspect-video bg-black rounded-lg shadow-inner overflow-hidden mb-4 border border-gray-800">
-      <canvas ref="canvasRef" class="w-full h-full"></canvas>
-    </div>
-
-    <div class="mb-4 flex items-center">
-      <input 
-        type="checkbox" 
-        id="screenShareToggle" 
-        v-model="recordScreenAndCamera" 
-        :disabled="isRecording" 
-        class="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-blue-600 ring-offset-gray-800"
+  <div class="video-recorder fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-black via-gray-900 to-black min-h-screen min-w-full">
+    <div class="w-full max-w-3xl bg-gray-900/80 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-6 sm:p-10 flex flex-col items-center justify-center">
+      <div
+        v-show="isRecording"
+        class="w-full aspect-video bg-black rounded-2xl shadow-inner overflow-hidden mb-4 border-2 border-blue-900/60 flex items-center justify-center"
       >
-      <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
-        Record Screen + Camera (switchable)
-      </label>
-    </div>
+        <canvas ref="canvasRef" class="w-full h-full rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300"></canvas>
+      </div>
 
-    <div class="flex flex-wrap justify-center gap-2 mb-4">
-      <button @click="startRecording" class="btn btn-blue" :disabled="isRecording">Start Recording</button>
-      <button @click="stopRecording" class="btn btn-red" :disabled="!isRecording">Stop Recording</button>
-      <button 
-        @click="switchVideoSource" 
-        class="btn btn-yellow" 
-        :disabled="!isRecording || !recordScreenAndCamera"
-        title="Switch between camera and screen video"
-      >
-        Switch Video Source
-      </button>
-    </div>
+      <div class="mb-4 flex items-center">
+        <input 
+          type="checkbox" 
+          id="screenShareToggle" 
+          v-model="recordScreenAndCamera" 
+          :disabled="isRecording" 
+          class="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-blue-600 ring-offset-gray-800"
+        >
+        <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
+          Record Screen + Camera (switchable)
+        </label>
+      </div>
 
-    <FilterSelector @filter-applied="applyFilter" :filters="filters" />
-    <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
+      <div class="flex flex-wrap justify-center gap-2 mb-4">
+        <button @click="startRecording" class="btn btn-blue" :disabled="isRecording">Start Recording</button>
+        <button @click="stopRecording" class="btn btn-red" :disabled="!isRecording">Stop Recording</button>
+        <button 
+          @click="switchVideoSource" 
+          class="btn btn-yellow" 
+          :disabled="!isRecording || !recordScreenAndCamera"
+          title="Switch between camera and screen video"
+        >
+          Switch Video Source
+        </button>
+      </div>
+
+      <FilterSelector @filter-applied="applyFilter" :filters="filters" />
+      <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
+    </div>
   </div>
 </template>
 
@@ -324,7 +329,10 @@ export default defineComponent({
 
 <style scoped>
 .video-recorder {
+  min-height: 100vh;
+  min-width: 100vw;
   transition: box-shadow 0.2s;
+  /* The background and centering are handled by the template classes */
 }
 
 .btn {
