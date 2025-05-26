@@ -1,22 +1,23 @@
 <template>
-  <div class="video-recorder flex flex-col items-center bg-white/80 dark:bg-gray-800/80 rounded-lg shadow-lg p-6 w-full max-w-2xl"> 
-    <div class="w-full aspect-video bg-gray-900 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden mb-4">
+  <div class="video-recorder flex flex-col items-center bg-gray-900/80 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl">
+    <div class="w-full aspect-video bg-black rounded-lg shadow-inner overflow-hidden mb-4 border border-gray-800">
       <canvas ref="canvasRef" class="w-full h-full"></canvas>
     </div>
 
-    <div class="mb-4 flex items-center"> 
+    <div class="mb-4 flex items-center">
       <input 
         type="checkbox" 
         id="screenShareToggle" 
         v-model="recordScreenAndCamera" 
         :disabled="isRecording" 
-        class="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
+        class="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-blue-600 ring-offset-gray-800"
       >
-      <label for="screenShareToggle" class="text-sm font-medium text-gray-700 dark:text-gray-300">Record Screen + Camera (switchable)</label>
+      <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
+        Record Screen + Camera (switchable)
+      </label>
     </div>
 
-    <div class="flex flex-wrap justify-center gap-2 mb-4"> 
-
+    <div class="flex flex-wrap justify-center gap-2 mb-4">
       <button @click="startRecording" class="btn btn-blue" :disabled="isRecording">Start Recording</button>
       <button @click="stopRecording" class="btn btn-red" :disabled="!isRecording">Stop Recording</button>
       <button 
@@ -28,7 +29,8 @@
         Switch Video Source
       </button>
     </div>
-    <FilterSelector @filter-applied="applyFilter" :filters="filters"/>
+
+    <FilterSelector @filter-applied="applyFilter" :filters="filters" />
     <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
   </div>
 </template>
@@ -324,27 +326,42 @@ export default defineComponent({
 .video-recorder {
   transition: box-shadow 0.2s;
 }
+
 .btn {
-  padding: 0.5rem 1.2rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
 }
+
 .btn-blue {
-  background: #2563eb; /* Tailwind blue-600 */
-  color: #fff;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: white;
+  box-shadow: 0 0 10px #3b82f6aa;
 }
+.btn-blue:hover {
+  box-shadow: 0 0 15px #3b82f6;
+}
+
 .btn-red {
-  background: #dc2626; /* Tailwind red-600 */
-  color: #fff;
+  background: linear-gradient(135deg, #7f1d1d, #ef4444);
+  color: white;
+  box-shadow: 0 0 10px #ef4444aa;
 }
+.btn-red:hover {
+  box-shadow: 0 0 15px #ef4444;
+}
+
 .btn-yellow {
-  background: #facc15; /* Tailwind yellow-400 */
-  color: #374151; /* Tailwind gray-700 for better contrast */
+  background: linear-gradient(135deg, #78350f, #facc15);
+  color: #111827;
+  box-shadow: 0 0 10px #facc15aa;
 }
+.btn-yellow:hover {
+  box-shadow: 0 0 15px #facc15;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
