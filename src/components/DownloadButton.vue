@@ -1,5 +1,5 @@
 <template>
-  <div class="flex gap-2 items-center">
+  <div class="flex flex-wrap gap-2 items-center">
     <button
       @click="downloadVideo('webm')"
       class="download-btn"
@@ -14,14 +14,22 @@
     >
       Download MP4
     </button>
-    <span v-if="isConverting" class="text-blue-600 ml-2">Converting to MP4... Please wait.</span>
+    <button
+      @click="downloadVideo('hls')"
+      class="download-btn"
+      :disabled="isConverting"
+    >
+      Download HLS (ZIP)
+    </button>
+    <span v-if="isConverting" class="text-blue-600 ml-2 w-full text-center sm:w-auto sm:text-left">Processing... Please wait.</span>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, shallowRef } from 'vue'; // Using shallowRef for ffmpegInstanceRef
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import JSZip from 'jszip'; // Import JSZip
 
 export default defineComponent({
   name: 'DownloadButton',
@@ -33,7 +41,7 @@ export default defineComponent({
   },
   setup(props) {
     const isConverting = ref(false);
-    const ffmpegInstanceRef = ref<FFmpeg | null>(null);
+    const ffmpegInstanceRef = shallowRef<FFmpeg | null>(null); // Use shallowRef
     let ffmpegLoadPromise: Promise<void> | null = null;
 
     const getFFmpeg = async (): Promise<FFmpeg> => {
@@ -52,7 +60,7 @@ export default defineComponent({
 
       if (!ffmpegLoadPromise) {
         console.log('Creating and loading new FFmpeg instance.');
-        const ffmpegCoreDirectory = '/ffmpeg-core/'; 
+        const ffmpegCoreDirectory = '/personal-recorder/ffmpeg-core/'; 
 
         try {
           console.log(`Attempting to load FFmpeg core files from public path: ${ffmpegCoreDirectory}`);
@@ -60,11 +68,6 @@ export default defineComponent({
           const coreURL = await toBlobURL(`${ffmpegCoreDirectory}ffmpeg-core.js`, 'application/javascript');
           const wasmURL = await toBlobURL(`${ffmpegCoreDirectory}ffmpeg-core.wasm`, 'application/wasm');
           const workerURL = await toBlobURL(`${ffmpegCoreDirectory}ffmpeg-core.worker.js`, 'application/javascript');
-
-          console.log('Blob URLs created:');
-          console.log('Core URL:', coreURL);
-          console.log('WASM URL:', wasmURL);
-          console.log('Worker URL:', workerURL);
 
           const newInstance = new FFmpeg({
             log: true,
@@ -96,85 +99,153 @@ export default defineComponent({
       return ffmpegInstanceRef.value;
     };
 
-    const downloadVideo = async (format: 'webm' | 'mp4') => {
-      if (format === 'mp4' && isConverting.value) {
-        console.warn('MP4 conversion is already in progress.');
+    const triggerDownload = (url: string, filename: string) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    const downloadVideo = async (format: 'webm' | 'mp4' | 'hls') => {
+      if (isConverting.value) {
+        console.warn('A conversion is already in progress.');
         return;
       }
-      if (isConverting.value && format !== 'mp4') {
-         console.warn('A conversion is in progress, please wait.');
-         return;
+
+      if (!props.videoUrl) {
+        alert("Video URL is not available.");
+        return;
       }
 
       if (format === 'webm') {
         try {
-          const a = document.createElement('a');
-          a.href = props.videoUrl;
-          a.download = 'recorded-video.webm';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          triggerDownload(props.videoUrl, 'recorded-video.webm');
         } catch (error) {
           console.error('Error downloading WebM:', error);
-          // Avoid using alert in modern web apps if possible. Consider a toast notification system.
-          // For now, keeping it simple as per original code's error handling style.
           alert('Failed to download WebM video.');
         }
-      } else if (format === 'mp4') {
+      } else if (format === 'mp4' || format === 'hls') {
         isConverting.value = true;
         try {
           const ffmpeg = await getFFmpeg();
+          const inputFilename = 'input.webm'; // Assuming input is always webm from props.videoUrl
 
-          if (!props.videoUrl) {
-            throw new Error("Video URL is not provided for MP4 conversion.");
-          }
-          console.log(`Fetching video file for MP4 conversion: ${props.videoUrl}`);
+          console.log(`Workspaceing video file for conversion: ${props.videoUrl}`);
           const inputData = await fetchFile(props.videoUrl);
           
-          const inputFilename = 'input.webm';
-          const outputFilename = 'output.mp4';
-
-          // Clean up files from previous runs, if any
+          // Clean up input file from previous run, if any
           try {
             await ffmpeg.deleteFile(inputFilename);
           } catch (e) { /* ignore if file doesn't exist */ }
-          try {
-            await ffmpeg.deleteFile(outputFilename);
-          } catch (e) { /* ignore if file doesn't exist */ }
-
-          // Write the fetched video data to FFmpeg's virtual file system
           await ffmpeg.writeFile(inputFilename, inputData);
 
-          console.log('Starting FFmpeg conversion to MP4...');
-          // Standard command for good compatibility
-          // The .run() method takes an array of arguments
-          await ffmpeg.exec(['-i', inputFilename, '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', outputFilename]);
-          console.log('Conversion finished.');
+          if (format === 'mp4') {
+            const outputFilename = 'output.mp4';
+            try {
+              await ffmpeg.deleteFile(outputFilename);
+            } catch (e) { /* ignore */ }
 
-          // Read the converted MP4 data from FFmpeg's virtual file system
-          const outputData = await ffmpeg.readFile(outputFilename);
+            console.log('Starting FFmpeg conversion to MP4...');
+            await ffmpeg.exec([ // Corrected from ffmpeg.exec to ffmpeg.exec
+              '-i', inputFilename, 
+              '-vf', 'format=yuv420p', // For wider compatibility
+              '-c:v', 'libx264', 
+              '-preset', 'ultrafast', 
+              '-c:a', 'aac', 
+              outputFilename
+            ]);
+            console.log('MP4 Conversion finished.');
+            const outputData = await ffmpeg.readFile(outputFilename);
+            const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
+            const mp4Url = URL.createObjectURL(mp4Blob);
+            triggerDownload(mp4Url, 'recorded-video.mp4');
+            await ffmpeg.deleteFile(outputFilename);
 
-          // Clean up files from FFmpeg's virtual file system after use
+          } else if (format === 'hls') {
+            const hlsOutputDir = 'hls_output';
+            const playlistFilename = 'playlist.m3u8';
+            const segmentFilenamePattern = 'segment%03d.ts';
+
+            // Clean up HLS output directory from previous run
+            try {
+              console.log(`Cleaning up HLS output directory: ${hlsOutputDir}`);
+              // Note: FFmpeg.wasm FS API might not have rmdir or advanced recursive delete.
+              // We list and delete files. If readdir fails, we assume dir doesn't exist.
+              const filesInDir = await ffmpeg.listDir(hlsOutputDir);
+              const dir = await ffmpeg.createDir(hlsOutputDir);
+                  console.log(`Directory ${dir} created successfully.`);
+                  console.log('Starting FFmpeg conversion to HLS...');
+            
+          
+            console.log('Starting FFmpeg conversion to HLS...');
+            await convertHLS(ffmpeg, inputFilename, hlsOutputDir, segmentFilenamePattern, playlistFilename);
+                console.log('HLS Conversion finished.');
+            } catch (e) {
+              // Directory likely doesn't exist, try to create it
+              console.warn(`Directory ${hlsOutputDir} does not exist, attempting to create it.`);
+              try {
+                  
+              } catch (createErr) {
+                  console.warn(`Could not create directory ${hlsOutputDir}: `, createErr);
+                  // If creation fails, FFmpeg might still create it, or fail if segments can't be written.
+              }
+            }
+            
+          }
+
           await ffmpeg.deleteFile(inputFilename);
-          await ffmpeg.deleteFile(outputFilename);
-
-          const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
-          const mp4Url = URL.createObjectURL(mp4Blob);
-
-          const a = document.createElement('a');
-          a.href = mp4Url;
-          a.download = 'recorded-video.mp4';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(mp4Url);
 
         } catch (error) {
-          console.error('Error during MP4 conversion or FFmpeg setup:', error);
+          console.error(`Error during ${format.toUpperCase()} conversion:`, error);
           alert(`Operation failed: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
           isConverting.value = false;
         }
+      }
+
+      async function convertHLS(ffmpeg: FFmpeg, inputFilename: string, hlsOutputDir: string, segmentFilenamePattern: string, playlistFilename: string) {
+        await ffmpeg.exec([
+          '-i', inputFilename,
+          // Using -codec copy for speed, assuming input is compatible (e.g., H.264/AAC)
+          // For WebM input, re-encoding is necessary for HLS compatibility:
+          '-c:v', 'libx264', '-preset', 'ultrafast',
+          '-c:a', 'aac',
+          '-hls_time', '10', // 10-second segments
+          '-hls_playlist_type', 'vod', // Video on Demand playlist
+          '-hls_segment_filename', `${hlsOutputDir}/${segmentFilenamePattern}`,
+          '-f', 'hls',
+          `${hlsOutputDir}/${playlistFilename}`
+        ]
+        );
+        console.log('HLS Conversion finished.');
+
+        const zip = new JSZip();
+        const hlsFolderInZip = zip.folder("hls_stream");
+
+        // Add playlist to zip
+        const playlistData = await ffmpeg.readFile(`${hlsOutputDir}/${playlistFilename}`);
+        hlsFolderInZip!.file(playlistFilename, playlistData);
+        await ffmpeg.deleteFile(`${hlsOutputDir}/${playlistFilename}`);
+
+        // Add segments to zip
+        // List files in the HLS output directory to get all generated .ts files
+        const outputFiles = await ffmpeg.listDir(hlsOutputDir);
+        for (const file of outputFiles) {
+          if (file.name.endsWith('.ts') && !file.isDir) {
+            const segmentData = await ffmpeg.readFile(`${hlsOutputDir}/${file.name}`);
+            hlsFolderInZip!.file(file.name, segmentData);
+            await ffmpeg.deleteFile(`${hlsOutputDir}/${file.name}`);
+          }
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipUrl = URL.createObjectURL(zipBlob);
+        triggerDownload(zipUrl, 'recorded-video-hls.zip');
       }
     };
 
