@@ -3,10 +3,12 @@
     <div class="w-full max-w-3xl bg-gray-900/80 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-6 sm:p-10 flex flex-col items-center justify-center">
       <div
         v-show="isRecording"
-        class="w-full aspect-video bg-black rounded-2xl shadow-inner overflow-hidden mb-4 border-2 border-blue-900/60 flex items-center justify-center"
+        class="w-full flex items-center justify-center mb-4"
       >
-        <canvas ref="canvasRef" class="w-full h-full rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300"></canvas>
+        <canvas ref="previewCanvasRef" width="320" height="180" class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300"></canvas>
       </div>
+      <!-- Add this hidden canvas for recording -->
+      <canvas ref="canvasRef" :width="2688" :height="1080" style="display:none;"></canvas>
 
       <div class="mb-4 flex items-center">
         <input 
@@ -45,8 +47,10 @@ import { defineComponent, ref, onMounted, onUnmounted, shallowRef } from 'vue';
 import FilterSelector from './FilterSelector.vue';
 import DownloadButton from './DownloadButton.vue';
 
-const CANVAS_RECORDING_WIDTH = 1920;
-const CANVAS_RECORDING_HEIGHT = 1080;
+const CANVAS_RECORDING_WIDTH = 2688;
+const CANVAS_RECORDING_HEIGHT = 1520;
+const PREVIEW_WIDTH = 320;
+const PREVIEW_HEIGHT = 180;
 
 const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
   width: { ideal: 2688 },
@@ -77,7 +81,14 @@ export default defineComponent({
     videoEl.playsInline = true;
     videoEl.muted = true;
 
-    const canvasRef = ref<HTMLCanvasElement | null>(null);
+    // Add a ref for the camera video element (for PiP)
+    const cameraVideoEl = document.createElement('video');
+    cameraVideoEl.autoplay = true;
+    cameraVideoEl.playsInline = true;
+    cameraVideoEl.muted = true;
+
+    const canvasRef = ref<HTMLCanvasElement | null>(null); // Offscreen for recording
+    const previewCanvasRef = ref<HTMLCanvasElement | null>(null); // Visible preview
     const mediaRecorder = shallowRef<MediaRecorder | null>(null);
     const recordedChunks = ref<Blob[]>([]);
     const isRecording = ref(false);
@@ -106,40 +117,104 @@ export default defineComponent({
     const selectedFilter = ref('none');
 
     onMounted(() => {
+      // Set up offscreen canvas for recording
       if (canvasRef.value) {
         canvasRef.value.width = CANVAS_RECORDING_WIDTH;
         canvasRef.value.height = CANVAS_RECORDING_HEIGHT;
       }
+      // Set up preview canvas
+      if (previewCanvasRef.value) {
+        previewCanvasRef.value.width = PREVIEW_WIDTH;
+        previewCanvasRef.value.height = PREVIEW_HEIGHT;
+      }
     });
 
+    // Draw to both canvases
     const drawToCanvas = () => {
-      if (!canvasRef.value || videoEl.paused || videoEl.ended || !videoEl.srcObject) {
-        animationFrameId.value = requestAnimationFrame(drawToCanvas);
-        return;
-      }
-      const ctx = canvasRef.value.getContext('2d');
-      if (!ctx) return;
+      // Helper to draw to any canvas context at any size
+      const drawFrame = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+        ctx.clearRect(0, 0, width, height);
+        ctx.save();
 
-      ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-      ctx.save(); 
+        // Main video filter
+        if (selectedFilter.value === 'grayscale') ctx.filter = 'grayscale(100%)';
+        else if (selectedFilter.value === 'invert') ctx.filter = 'invert(100%)';
+        else if (selectedFilter.value === 'sepia') ctx.filter = 'sepia(100%)';
+        else if (selectedFilter.value === 'blur') ctx.filter = 'blur(4px)';
+        else if (filterOptions.some(f => f.id === selectedFilter.value && f.name.includes('(SVG)'))) {
+          ctx.filter = `url(#${selectedFilter.value})`;
+        }
 
-      if (selectedFilter.value === 'grayscale') ctx.filter = 'grayscale(100%)';
-      else if (selectedFilter.value === 'invert') ctx.filter = 'invert(100%)';
-      else if (selectedFilter.value === 'sepia') ctx.filter = 'sepia(100%)';
-      else if (selectedFilter.value === 'blur') ctx.filter = 'blur(4px)';
-      else if (filterOptions.some(f => f.id === selectedFilter.value && f.name.includes('(SVG)'))) {
-        ctx.filter = `url(#${selectedFilter.value})`;
-      }
-      
-      ctx.drawImage(videoEl, 0, 0, canvasRef.value.width, canvasRef.value.height);
-      ctx.restore(); 
+        // Draw main video (screen or camera)
+        ctx.drawImage(videoEl, 0, 0, width, height);
+        ctx.restore();
 
-      if (selectedFilter.value === 'sharpen') {
-        const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height);
-        applySharpen(imageData); 
-        ctx.putImageData(imageData, 0, 0);
+        // PiP logic (same as before, but scale PiP size/position to canvas size)
+        if (
+          recordScreenAndCamera.value &&
+          activeDisplaySource.value === 'screen' &&
+          userVideoStream.value
+        ) {
+          if (cameraVideoEl.srcObject !== userVideoStream.value) {
+            cameraVideoEl.srcObject = userVideoStream.value;
+            cameraVideoEl.play().catch(() => {});
+          }
+          const pipWidth = Math.floor(width * 0.25);
+          const pipHeight = Math.floor(height * 0.25);
+          const pipX = width - pipWidth - 16;
+          const pipY = height - pipHeight - 16;
+          const radius = 12;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pipX + radius, pipY);
+          ctx.lineTo(pipX + pipWidth - radius, pipY);
+          ctx.quadraticCurveTo(pipX + pipWidth, pipY, pipX + pipWidth, pipY + radius);
+          ctx.lineTo(pipX + pipWidth, pipY + pipHeight - radius);
+          ctx.quadraticCurveTo(pipX + pipWidth, pipY + pipHeight, pipX + pipWidth - radius, pipY + pipHeight);
+          ctx.lineTo(pipX + radius, pipY + pipHeight);
+          ctx.quadraticCurveTo(pipX, pipY + pipHeight, pipX, pipY + pipHeight - radius);
+          ctx.lineTo(pipX, pipY + radius);
+          ctx.quadraticCurveTo(pipX, pipY, pipX + radius, pipY);
+          ctx.closePath();
+          ctx.clip();
+
+          ctx.globalAlpha = 0.9;
+          ctx.drawImage(cameraVideoEl, pipX, pipY, pipWidth, pipHeight);
+          ctx.globalAlpha = 1.0;
+
+          ctx.restore();
+          ctx.save();
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(pipX + radius, pipY);
+          ctx.lineTo(pipX + pipWidth - radius, pipY);
+          ctx.quadraticCurveTo(pipX + pipWidth, pipY, pipX + pipWidth, pipY + radius);
+          ctx.lineTo(pipX + pipWidth, pipY + pipHeight - radius);
+          ctx.quadraticCurveTo(pipX + pipWidth, pipY + pipHeight, pipX + pipWidth - radius, pipY + pipHeight);
+          ctx.lineTo(pipX + radius, pipY + pipHeight);
+          ctx.quadraticCurveTo(pipX, pipY + pipHeight, pipX, pipY + pipHeight - radius);
+          ctx.lineTo(pipX, pipY + radius);
+          ctx.quadraticCurveTo(pipX, pipY, pipX + radius, pipY);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        }
+      };
+
+      // Draw to offscreen recording canvas
+      if (canvasRef.value) {
+        const ctx = canvasRef.value.getContext('2d');
+        if (ctx) drawFrame(ctx, CANVAS_RECORDING_WIDTH, CANVAS_RECORDING_HEIGHT);
       }
-      
+      // Draw to preview canvas
+      if (previewCanvasRef.value) {
+        const ctx = previewCanvasRef.value.getContext('2d');
+        if (ctx) drawFrame(ctx, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+      }
+
       animationFrameId.value = requestAnimationFrame(drawToCanvas);
     };
 
@@ -341,7 +416,8 @@ export default defineComponent({
     });
 
     return {
-      canvasRef, 
+      canvasRef,
+      previewCanvasRef,
       startRecording,
       stopRecording,
       switchVideoSource,
