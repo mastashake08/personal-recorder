@@ -1,3 +1,13 @@
+<template>
+  <div class="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-800 flex flex-col items-center justify-center">
+    <div class="bg-white/90 dark:bg-gray-900/90 rounded-xl shadow-2xl p-8 w-full max-w-2xl flex flex-col items-center">
+      <h1 class="text-3xl font-extrabold text-blue-700 dark:text-blue-400 mb-6 drop-shadow">Vue Video Filters</h1>
+      <VideoRecorder @recordingComplete="handleRecordingComplete" />
+      <DownloadButton v-if="videoUrl" :videoUrl="videoUrl" />
+    </div>
+  </div>
+</template>
+
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import VideoRecorder from './components/VideoRecorder.vue';
@@ -17,7 +27,6 @@ export default defineComponent({
     const handleRecordingComplete = (url: string) => {
       videoUrl.value = url;
     };
-   
 
     return {
       videoUrl,
@@ -26,13 +35,6 @@ export default defineComponent({
   },
 });
 </script>
-<template>
-  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-    <h1>Vue Video Filters</h1>
-    <VideoRecorder @recordingComplete="handleRecordingComplete" />
-    <DownloadButton v-if="videoUrl" :videoUrl="videoUrl" />
-  </div>
-</template>
 
 <style>
 .app-container {
