@@ -45,8 +45,8 @@ import { defineComponent, ref, onMounted, onUnmounted, shallowRef } from 'vue';
 import FilterSelector from './FilterSelector.vue';
 import DownloadButton from './DownloadButton.vue';
 
-const CANVAS_RECORDING_WIDTH = 1920; // User updated
-const CANVAS_RECORDING_HEIGHT = 1080; // User updated
+const CANVAS_RECORDING_WIDTH = 1920;
+const CANVAS_RECORDING_HEIGHT = 1080;
 
 export default defineComponent({
   name: 'VideoRecorder',
@@ -65,8 +65,7 @@ export default defineComponent({
     const recordedChunks = ref<Blob[]>([]);
     const isRecording = ref(false);
     const videoUrl = ref<string | null>(null);
-    
-    const recordScreenAndCamera = ref(false); 
+    const recordScreenAndCamera = ref(false);
     const userVideoStream = shallowRef<MediaStream | null>(null);
     const screenVideoStream = shallowRef<MediaStream | null>(null); 
     const audioStream = shallowRef<MediaStream | null>(null); 
@@ -301,15 +300,23 @@ export default defineComponent({
       selectedFilter.value = filter;
     };
 
+    // Keyboard shortcut: Press "S" to switch media
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (
+        e.key.toLowerCase() === 's' &&
+        isRecording.value &&
+        recordScreenAndCamera.value
+      ) {
+        e.preventDefault();
+        switchVideoSource();
+      }
+    };
+
+    onMounted(() => {
+      window.addEventListener('keydown', handleKeydown);
+    });
     onUnmounted(() => {
-      if (isRecording.value) { 
-        stopRecording();
-      } else { 
-        cleanupStreams();
-      }
-      if (animationFrameId.value) {
-        cancelAnimationFrame(animationFrameId.value);
-      }
+      window.removeEventListener('keydown', handleKeydown);
     });
 
     return {
