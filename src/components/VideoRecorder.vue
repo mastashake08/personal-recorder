@@ -8,7 +8,7 @@
         <canvas ref="previewCanvasRef" width="320" height="180" class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300"></canvas>
       </div>
       <!-- Add this hidden canvas for recording -->
-      <canvas ref="canvasRef" :width="2688" :height="1080" style="display:none;"></canvas>
+      <canvas ref="canvasRef" :width="2688" :height="1520" style="display:none;"></canvas>
 
       <div class="mb-4 flex items-center">
         <input 

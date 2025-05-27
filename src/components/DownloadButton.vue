@@ -1,27 +1,83 @@
 <template>
-  <div class="flex flex-wrap gap-2 items-center">
-    <button
-      @click="downloadVideo('webm')"
-      class="download-btn"
-      :disabled="isConverting"
-    >
-      Download WebM
-    </button>
-    <button
-      @click="downloadVideo('mp4')"
-      class="download-btn"
-      :disabled="isConverting"
-    >
-      Download MP4
-    </button>
-    <button
-      @click="downloadVideo('hls')"
-      class="download-btn"
-      :disabled="isConverting"
-    >
-      Download HLS (ZIP)
-    </button>
+  <div class="w-full flex flex-col items-center mb-4">
+    <div class="flex flex-wrap gap-2 items-center mb-2">
+      <input v-model="metaTitle" placeholder="Title" class="rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="metaComment" placeholder="Comment" class="rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="metaDate" type="datetime-local" class="rounded px-2 py-1 border border-gray-400 text-black" />
+    </div>
+    <div class="flex items-center gap-2 mb-2">
+      <input type="checkbox" id="extractTracks" v-model="extractTracks" class="rounded border-gray-400" />
+      <label for="extractTracks" class="text-sm text-gray-200">Extract audio and video separately</label>
+    </div>
+    <div class="flex flex-wrap gap-4 items-center mb-4">
+      <span class="text-gray-200 font-semibold mr-2">Choose Output Resolutions:</span>
+      <label v-for="option in resolutionOptions" :key="option.value" class="flex items-center gap-1 px-2 py-1 rounded bg-gray-800 text-gray-200 cursor-pointer hover:bg-blue-900 transition">
+        <input
+          type="checkbox"
+          v-model="selectedResolutions"
+          :value="option.value"
+          class="accent-blue-500 rounded border-gray-400"
+        />
+        <span class="text-sm">{{ option.label }}</span>
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-4 items-center mb-4">
+      <span class="text-gray-200 font-semibold mr-2">Choose Framerate:</span>
+      <label v-for="option in framerateOptions" :key="option.value" class="flex items-center gap-1 px-2 py-1 rounded bg-gray-800 text-gray-200 cursor-pointer hover:bg-blue-900 transition">
+        <input
+          type="radio"
+          v-model="selectedFramerate"
+          :value="option.value"
+          class="accent-blue-500 rounded border-gray-400"
+        />
+        <span class="text-sm">{{ option.label }}</span>
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center mb-2">
+      <input v-model="trimStart" placeholder="Start (e.g. 00:00:05)" class="rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="trimEnd" placeholder="End (e.g. 00:00:20)" class="rounded px-2 py-1 border border-gray-400 text-black" />
+      <label class="text-sm text-gray-200">Trim Video</label>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center mb-4">
+      <button
+        @click="downloadVideo('webm')"
+        class="download-btn"
+        :disabled="isConverting"
+      >
+        Download WebM
+      </button>
+      <button
+        @click="downloadVideo('mp4')"
+        class="download-btn"
+        :disabled="isConverting"
+      >
+        Download MP4
+      </button>
+      <button
+        @click="downloadVideo('hls')"
+        class="download-btn"
+        :disabled="isConverting"
+      >
+        Download HLS (ZIP)
+      </button>
+      <button
+        @click="downloadThumbnail"
+        class="download-btn"
+        :disabled="isConverting"
+      >
+        Download Thumbnail
+      </button>
+    </div>
     <span v-if="isConverting" class="text-blue-600 ml-2 w-full text-center sm:w-auto sm:text-left">Processing... Please wait.</span>
+    <div v-if="isConverting" class="w-full mt-4">
+      <div class="w-full bg-gray-700 rounded h-3 overflow-hidden">
+        <div
+          class="bg-blue-500 h-3 transition-all duration-200"
+          :style="{ width: Math.round(progressValue * 100) + '%' }"
+        ></div>
+      </div>
+      <div class="text-xs text-gray-300 mt-1 text-center">{{ Math.round(progressValue * 100) }}%</div>
+    </div>
   </div>
 </template>
 
@@ -41,8 +97,33 @@ export default defineComponent({
   },
   setup(props) {
     const isConverting = ref(false);
+    const metaTitle = ref('');
+    const metaComment = ref('');
+    const metaDate = ref(new Date().toISOString().slice(0, 16)); // For datetime-local input
     const ffmpegInstanceRef = shallowRef<FFmpeg | null>(null); // Use shallowRef
     let ffmpegLoadPromise: Promise<void> | null = null;
+    const extractTracks = ref(false); // New reactive property for checkbox
+    const resolutionOptions = [
+      { label: '4K (3840x2160)', value: '3840x2160' },
+      { label: '2.7K (2688x1520)', value: '2688x1520' },
+      { label: '1440p (2560x1440)', value: '2560x1440'},
+      { label: '1080p (1920x1080)', value: '1920x1080' },
+      { label: '720p (1280x720)', value: '1280x720' },
+      { label: '480p (854x480)', value: '854x480' },
+      { label: '360p (640x360)', value: '640x360' },
+    ];
+    const selectedResolutions = ref<string[]>(['1920x1080']); // Default to 1080p
+    const progressValue = ref(0); // Progress value for the conversion process
+    const framerateOptions = [
+      { label: '60 FPS', value: 60 },
+      { label: '30 FPS', value: 30 },
+      { label: '24 FPS', value: 24 },
+    ];
+    const selectedFramerate = ref(30); // Default to 30 FPS
+    const trimStart = ref('');
+    const trimEnd = ref('');
+    const previewUrl = ref<string | null>(null);
+    const previewType = ref<'mp4' | 'webm' | null>(null);
 
     const getFFmpeg = async (): Promise<FFmpeg> => {
       if (ffmpegLoadPromise) {
@@ -131,8 +212,15 @@ export default defineComponent({
         }
       } else if (format === 'mp4' || format === 'hls') {
         isConverting.value = true;
+        progressValue.value = 0; // Reset progress value
+
         try {
           const ffmpeg = await getFFmpeg();
+
+          ffmpeg.on('progress', ({ progress}) => {
+            progressValue.value = progress / -100000000; // ratio is 0.0 to 1.0
+          });
+
           const inputFilename = 'input.webm'; // Assuming input is always webm from props.videoUrl
 
           console.log(`Workspaceing video file for conversion: ${props.videoUrl}`);
@@ -145,27 +233,36 @@ export default defineComponent({
           await ffmpeg.writeFile(inputFilename, inputData);
 
           if (format === 'mp4') {
-            const outputFilename = 'output.mp4';
-            try {
+            for (const res of selectedResolutions.value) {
+              const [w, h] = res.split('x');
+              const outputFilename = `output-${w}x${h}.mp4`;
+              try { await ffmpeg.deleteFile(outputFilename); } catch {}
+
+              const filterChain = [`scale=${w}:${h}`, 'format=yuv420p'];
+              const trimArgs = [];
+              if (trimStart.value) trimArgs.push('-ss', trimStart.value);
+              if (trimEnd.value) trimArgs.push('-to', trimEnd.value);
+
+              await ffmpeg.exec([
+                ...trimArgs,
+                '-i', inputFilename,
+                '-vf', filterChain.join(','),
+                '-r', String(selectedFramerate.value),
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-c:a', 'aac',
+                ...(metaTitle.value ? ['-metadata', `title=${metaTitle.value}`] : []),
+                ...(metaComment.value ? ['-metadata', `comment=${metaComment.value}`] : []),
+                ...(metaDate.value ? ['-metadata', `date=${metaDate.value}`] : []),
+                outputFilename
+              ]);
+              const outputData = await ffmpeg.readFile(outputFilename);
+              const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
+              const mp4Url = URL.createObjectURL(mp4Blob);
+              triggerDownload(mp4Url, metaTitle.value ? `${metaTitle.value}-${w}x${h}.mp4` : `recorded-video-${w}x${h}.mp4`);
               await ffmpeg.deleteFile(outputFilename);
-            } catch (e) { /* ignore */ }
-
-            console.log('Starting FFmpeg conversion to MP4...');
-            await ffmpeg.exec([ // Corrected from ffmpeg.exec to ffmpeg.exec
-              '-i', inputFilename, 
-              '-vf', 'format=yuv420p', // For wider compatibility
-              '-c:v', 'libx264', 
-              '-preset', 'ultrafast', 
-              '-c:a', 'aac', 
-              outputFilename
-            ]);
-            console.log('MP4 Conversion finished.');
-            const outputData = await ffmpeg.readFile(outputFilename);
-            const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
-            const mp4Url = URL.createObjectURL(mp4Blob);
-            triggerDownload(mp4Url, 'recorded-video.mp4');
-            await ffmpeg.deleteFile(outputFilename);
-
+            }
+            // ...extractTracks logic can go here for the highest resolution if desired...
           } else if (format === 'hls') {
             const hlsOutputDir = 'hls_output';
             const playlistFilename = 'playlist.m3u8';
@@ -176,7 +273,6 @@ export default defineComponent({
               console.log(`Cleaning up HLS output directory: ${hlsOutputDir}`);
               // Note: FFmpeg.wasm FS API might not have rmdir or advanced recursive delete.
               // We list and delete files. If readdir fails, we assume dir doesn't exist.
-              const filesInDir = await ffmpeg.listDir(hlsOutputDir);
               const dir = await ffmpeg.createDir(hlsOutputDir);
                   console.log(`Directory ${dir} created successfully.`);
                   console.log('Starting FFmpeg conversion to HLS...');
@@ -211,17 +307,18 @@ export default defineComponent({
       async function convertHLS(ffmpeg: FFmpeg, inputFilename: string, hlsOutputDir: string, segmentFilenamePattern: string, playlistFilename: string) {
         await ffmpeg.exec([
           '-i', inputFilename,
-          // Using -codec copy for speed, assuming input is compatible (e.g., H.264/AAC)
-          // For WebM input, re-encoding is necessary for HLS compatibility:
           '-c:v', 'libx264', '-preset', 'ultrafast',
+          '-r', String(selectedFramerate.value),
           '-c:a', 'aac',
-          '-hls_time', '10', // 10-second segments
-          '-hls_playlist_type', 'vod', // Video on Demand playlist
+          ...(metaTitle.value ? ['-metadata', `title=${metaTitle.value}`] : []),
+          ...(metaComment.value ? ['-metadata', `comment=${metaComment.value}`] : []),
+          ...(metaDate.value ? ['-metadata', `date=${metaDate.value}`] : []),
+          '-hls_time', '10',
+          '-hls_playlist_type', 'vod',
           '-hls_segment_filename', `${hlsOutputDir}/${segmentFilenamePattern}`,
           '-f', 'hls',
           `${hlsOutputDir}/${playlistFilename}`
-        ]
-        );
+        ]);
         console.log('HLS Conversion finished.');
 
         const zip = new JSZip();
@@ -243,15 +340,89 @@ export default defineComponent({
           }
         }
 
+        // Extract audio and video if the option is enabled
+        if (extractTracks.value) {
+          // Extract audio
+          const audioFilename = 'extracted-audio.m4a';
+          try { await ffmpeg.deleteFile(audioFilename); } catch {}
+          await ffmpeg.exec([
+            '-i', inputFilename,
+            '-vn',
+            '-acodec', 'aac',
+            audioFilename
+          ]);
+          const audioData = await ffmpeg.readFile(audioFilename);
+          hlsFolderInZip!.file(audioFilename, audioData);
+          await ffmpeg.deleteFile(audioFilename);
+
+          // Extract video (no audio)
+          const videoOnlyFilename = 'extracted-video.mp4';
+          try { await ffmpeg.deleteFile(videoOnlyFilename); } catch {}
+          await ffmpeg.exec([
+            '-i', inputFilename,
+            '-an',
+            '-vcodec', 'copy',
+            videoOnlyFilename
+          ]);
+          const videoData = await ffmpeg.readFile(videoOnlyFilename);
+          hlsFolderInZip!.file(videoOnlyFilename, videoData);
+          await ffmpeg.deleteFile(videoOnlyFilename);
+        }
+
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const zipUrl = URL.createObjectURL(zipBlob);
         triggerDownload(zipUrl, 'recorded-video-hls.zip');
       }
     };
 
+    const downloadThumbnail = async () => {
+      isConverting.value = true;
+      try {
+        const ffmpeg = await getFFmpeg();
+        const inputFilename = 'input.webm';
+        const thumbFilename = 'thumbnail.png';
+
+        // Write input file if not present
+        try { await ffmpeg.deleteFile(inputFilename); } catch {}
+        const inputData = await fetchFile(props.videoUrl);
+        await ffmpeg.writeFile(inputFilename, inputData);
+
+        await ffmpeg.exec([
+          '-i', inputFilename,
+          '-ss', trimStart.value || '00:00:01',
+          '-frames:v', '1',
+          thumbFilename
+        ]);
+        const thumbData = await ffmpeg.readFile(thumbFilename);
+        const thumbBlob = new Blob([thumbData.buffer], { type: 'image/png' });
+        const thumbUrl = URL.createObjectURL(thumbBlob);
+        triggerDownload(thumbUrl, 'thumbnail.png');
+        await ffmpeg.deleteFile(thumbFilename);
+        await ffmpeg.deleteFile(inputFilename);
+      } catch (e) {
+        alert('Failed to generate thumbnail.');
+      } finally {
+        isConverting.value = false;
+      }
+    };
+
     return {
       downloadVideo,
+      downloadThumbnail,
       isConverting,
+      metaTitle,
+      metaComment,
+      metaDate,
+      extractTracks,
+      resolutionOptions,
+      selectedResolutions,
+      progressValue,
+      framerateOptions,
+      selectedFramerate,
+      trimStart,
+      trimEnd,
+      previewUrl,
+      previewType,
     };
   },
 });
