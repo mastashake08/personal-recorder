@@ -420,12 +420,14 @@ export default defineComponent({
 
         // Example mapping for Xbox/PS controllers:
         // Button 1: B/Circle (Stop Recording)
-        // Button 2: X/Square (Switch Video Source)
-        
-        if (gp.buttons[1].pressed && isRecording.value) {
+        // // Button 2: X/Square (Switch Video Source)
+        // if ((gp.buttons[0].pressed || gp.buttons[0].value >0)&& !isRecording.value) {
+        //   startRecording();
+        // }
+        if ((gp.buttons[1].pressed  || gp.buttons[1].value >0)  && isRecording.value) {
           stopRecording();
         }
-        if (gp.buttons[0].pressed && isRecording.value && recordScreenAndCamera.value) {
+        if ((gp.buttons[0].pressed || gp.buttons[0].value >0) && isRecording.value && recordScreenAndCamera.value) {
           switchVideoSource();
         }
       }
@@ -435,7 +437,7 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown);
       if (gamepadAnimationId) cancelAnimationFrame(gamepadAnimationId);
-      gamepadAnimationId = requestAnimationFrame(pollGamepad);
+      pollGamepad();
     });
     onUnmounted(() => {
       window.removeEventListener('keydown', handleKeydown);
