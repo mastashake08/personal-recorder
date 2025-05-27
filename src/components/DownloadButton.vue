@@ -1,5 +1,15 @@
 <template>
   <div class="w-full flex flex-col items-center mb-4">
+    <div v-if="videoUrl" class="w-full flex flex-col items-center mb-4">
+      <video
+        :src="videoUrl"
+        controls
+        class="rounded-lg border border-blue-700 shadow-lg w-full max-w-xl mb-2"
+        style="background:black"
+        width="640"
+        height="360"
+      ></video>
+    </div>
     <div class="flex flex-wrap gap-2 items-center mb-2">
       <input v-model="metaTitle" placeholder="Title" class="rounded px-2 py-1 border border-gray-400 text-black" />
       <input v-model="metaComment" placeholder="Comment" class="rounded px-2 py-1 border border-gray-400 text-black" />
@@ -218,7 +228,7 @@ export default defineComponent({
           const ffmpeg = await getFFmpeg();
 
           ffmpeg.on('progress', ({ progress}) => {
-            progressValue.value = progress / -100000000; // ratio is 0.0 to 1.0
+            progressValue.value = (progress / -10000000*4) ; // ratio is 0.0 to 1.0
           });
 
           const inputFilename = 'input.webm'; // Assuming input is always webm from props.videoUrl
@@ -233,6 +243,7 @@ export default defineComponent({
           await ffmpeg.writeFile(inputFilename, inputData);
 
           if (format === 'mp4') {
+            const generatedFiles: { filename: string; blob: Blob }[] = [];
             for (const res of selectedResolutions.value) {
               const [w, h] = res.split('x');
               const outputFilename = `output-${w}x${h}.mp4`;
@@ -258,11 +269,26 @@ export default defineComponent({
               ]);
               const outputData = await ffmpeg.readFile(outputFilename);
               const mp4Blob = new Blob([outputData.buffer], { type: 'video/mp4' });
-              const mp4Url = URL.createObjectURL(mp4Blob);
-              triggerDownload(mp4Url, metaTitle.value ? `${metaTitle.value}-${w}x${h}.mp4` : `recorded-video-${w}x${h}.mp4`);
+              generatedFiles.push({
+                filename: metaTitle.value ? `${metaTitle.value}-${w}x${h}.mp4` : `recorded-video-${w}x${h}.mp4`,
+                blob: mp4Blob
+              });
               await ffmpeg.deleteFile(outputFilename);
             }
-            // ...extractTracks logic can go here for the highest resolution if desired...
+
+            if (generatedFiles.length > 1) {
+              // Zip all files
+              const zip = new JSZip();
+              for (const file of generatedFiles) {
+                zip.file(file.filename, file.blob);
+              }
+              const zipBlob = await zip.generateAsync({ type: "blob" });
+              const zipUrl = URL.createObjectURL(zipBlob);
+              triggerDownload(zipUrl, metaTitle.value ? `${metaTitle.value}-videos.zip` : 'recorded-videos.zip');
+            } else if (generatedFiles.length === 1) {
+              // Single file, download directly
+              triggerDownload(generatedFiles[0].blob, generatedFiles[0].filename);
+            }
           } else if (format === 'hls') {
             const hlsOutputDir = 'hls_output';
             const playlistFilename = 'playlist.m3u8';

@@ -53,8 +53,8 @@ const PREVIEW_WIDTH = 320;
 const PREVIEW_HEIGHT = 180;
 
 const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
-  width: { ideal: 2688 },
-  height: { ideal: 1520 },
+  width: { ideal: 3840 },
+  height: { ideal: 2160 },
   frameRate: { ideal: 60 },
   facingMode: { ideal: "user" },
   aspectRatio: { ideal: 16 / 9 },
@@ -308,14 +308,17 @@ export default defineComponent({
       try {
         await videoEl.play();
       } catch (playError) {
-          console.error("Error playing video source:", playError);
-          alert("Could not play video source.");
-          cleanupStreams();
-          return;
+        console.error("Error playing video source:", playError);
+        alert("Could not play video source. Please click anywhere on the page and try again.");
+        cleanupStreams();
+        return;
       }
 
 
-      if (animationFrameId.value) cancelAnimationFrame(animationFrameId.value);
+      if (animationFrameId.value) {
+        cancelAnimationFrame(animationFrameId.value);
+        animationFrameId.value = null;
+      }
       drawToCanvas();
 
       const streamFromCanvas = canvasRef.value.captureStream(60);
@@ -408,11 +411,38 @@ export default defineComponent({
       }
     };
 
+    let gamepadAnimationId: number | null = null;
+
+    function pollGamepad() {
+      const gamepads = navigator.getGamepads();
+      if (gamepads[0]) {
+        const gp = gamepads[0];
+
+        // Example mapping for Xbox/PS controllers:
+        // Button 1: B/Circle (Stop Recording)
+        // Button 2: X/Square (Switch Video Source)
+        
+        if (gp.buttons[1].pressed && isRecording.value) {
+          stopRecording();
+        }
+        if (gp.buttons[0].pressed && isRecording.value && recordScreenAndCamera.value) {
+          switchVideoSource();
+        }
+      }
+      gamepadAnimationId = requestAnimationFrame(pollGamepad);
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown);
+      if (gamepadAnimationId) cancelAnimationFrame(gamepadAnimationId);
+      gamepadAnimationId = requestAnimationFrame(pollGamepad);
     });
     onUnmounted(() => {
       window.removeEventListener('keydown', handleKeydown);
+      if (gamepadAnimationId) {
+        cancelAnimationFrame(gamepadAnimationId);
+        gamepadAnimationId = null;
+      }
     });
 
     return {
