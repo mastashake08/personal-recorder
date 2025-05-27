@@ -228,7 +228,7 @@ export default defineComponent({
           const ffmpeg = await getFFmpeg();
 
           ffmpeg.on('progress', ({ progress}) => {
-            progressValue.value = (progress / -10000000*4) ; // ratio is 0.0 to 1.0
+            progressValue.value = (progress / -100000000.00*4) ; // ratio is 0.0 to 1.0
           });
 
           const inputFilename = 'input.webm'; // Assuming input is always webm from props.videoUrl
