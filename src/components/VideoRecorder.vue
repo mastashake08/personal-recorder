@@ -10,6 +10,18 @@
       <!-- Add this hidden canvas for recording -->
       <canvas ref="canvasRef" :width="2688" :height="1520" style="display:none;"></canvas>
 
+      <!-- Live camera preview before recording -->
+      <div v-if="!isRecording && userVideoStream" class="w-full flex items-center justify-center mb-4">
+        <video
+          ref="livePreviewRef"
+          autoplay
+          playsinline
+          muted
+          class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300 w-full max-w-xl"
+          style="aspect-ratio: 16/9;"
+        ></video>
+      </div>
+
       <div class="mb-4 flex items-center">
         <input 
           type="checkbox" 
@@ -21,6 +33,22 @@
         <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
           Record Screen + Camera (switchable)
         </label>
+      </div>
+
+      <!-- Device selection controls -->
+      <div class="flex flex-wrap gap-4 mb-4 w-full justify-center">
+        <div>
+          <label class="block text-gray-300 text-sm mb-1">Microphone:</label>
+          <select v-model="selectedAudioDeviceId" class="rounded px-2 py-1 border border-gray-400 text-black">
+            <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-300 text-sm mb-1">Camera:</label>
+          <select v-model="selectedVideoDeviceId" class="rounded px-2 py-1 border border-gray-400 text-black">
+            <option v-for="d in videoDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
+          </select>
+        </div>
       </div>
 
       <div class="flex flex-wrap justify-center gap-2 mb-4">
@@ -116,17 +144,24 @@ export default defineComponent({
     const filters = ref(filterOptions);
     const selectedFilter = ref('none');
 
-    onMounted(() => {
-      // Set up offscreen canvas for recording
-      if (canvasRef.value) {
-        canvasRef.value.width = CANVAS_RECORDING_WIDTH;
-        canvasRef.value.height = CANVAS_RECORDING_HEIGHT;
-      }
-      // Set up preview canvas
-      if (previewCanvasRef.value) {
-        previewCanvasRef.value.width = PREVIEW_WIDTH;
-        previewCanvasRef.value.height = PREVIEW_HEIGHT;
-      }
+    // Add to setup()
+    const audioDevices = ref<MediaDeviceInfo[]>([]);
+    const videoDevices = ref<MediaDeviceInfo[]>([]);
+    const selectedAudioDeviceId = ref<string | null>(null);
+    const selectedVideoDeviceId = ref<string | null>(null);
+
+    onMounted(async () => {
+      window.addEventListener('keydown', handleKeydown);
+      if (gamepadAnimationId) cancelAnimationFrame(gamepadAnimationId);
+      pollGamepad();
+
+      // Get devices
+      await navigator.mediaDevices.getUserMedia({ audio: true, video: true }); // Prompt for permissions
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      audioDevices.value = devices.filter(d => d.kind === 'audioinput');
+      videoDevices.value = devices.filter(d => d.kind === 'videoinput');
+      if (audioDevices.value.length) selectedAudioDeviceId.value = audioDevices.value[0].deviceId;
+      if (videoDevices.value.length) selectedVideoDeviceId.value = videoDevices.value[0].deviceId;
     });
 
     // Draw to both canvases
@@ -274,11 +309,17 @@ export default defineComponent({
 
       try {
         // Use ideal audio constraints
-        audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: false });
+        audioStream.value = await navigator.mediaDevices.getUserMedia({
+          audio: { ...AUDIO_CONSTRAINTS, deviceId: selectedAudioDeviceId.value ? { exact: selectedAudioDeviceId.value } : undefined },
+          video: false
+        });
 
         if (recordScreenAndCamera.value) {
           // Use ideal video constraints for camera
-          userVideoStream.value = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
+          userVideoStream.value = await navigator.mediaDevices.getUserMedia({
+            video: { ...VIDEO_CONSTRAINTS, deviceId: selectedVideoDeviceId.value ? { exact: selectedVideoDeviceId.value } : undefined },
+            audio: false
+          });
           // Use ideal video constraints for screen (if supported)
           const fullScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: VIDEO_CONSTRAINTS, audio: AUDIO_CONSTRAINTS }); 
           screenVideoStream.value = new MediaStream(fullScreenStream.getVideoTracks()); 
@@ -287,6 +328,7 @@ export default defineComponent({
           if (!userVideoStream.value || !screenVideoStream.value) {
             throw new Error('Failed to get both camera and screen video streams.');
           }
+          console.log("User video stream:", userVideoStream.value);
           videoEl.srcObject = userVideoStream.value; 
           activeDisplaySource.value = 'camera';
         } else {
@@ -447,6 +489,11 @@ export default defineComponent({
       }
     });
 
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const metaDate = ref(localDate);
+
     return {
       canvasRef,
       previewCanvasRef,
@@ -458,6 +505,10 @@ export default defineComponent({
       videoUrl,
       isRecording,
       recordScreenAndCamera, 
+      audioDevices,
+      videoDevices,
+      selectedAudioDeviceId,
+      selectedVideoDeviceId,
     };
   },
 });
