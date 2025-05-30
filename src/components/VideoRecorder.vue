@@ -1,72 +1,59 @@
 <template>
-  <div class="video-recorder fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-black via-gray-900 to-black min-h-screen min-w-full">
-    <div class="w-full max-w-3xl bg-gray-900/80 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-6 sm:p-10 flex flex-col items-center justify-center">
-      <div
-        v-show="isRecording"
-        class="w-full flex items-center justify-center mb-4"
-      >
-        <canvas ref="previewCanvasRef" width="320" height="180" class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300"></canvas>
-      </div>
-      <!-- Add this hidden canvas for recording -->
-      <canvas ref="canvasRef" :width="2688" :height="1520" style="display:none;"></canvas>
-
-      <!-- Live camera preview before recording -->
-      <div v-if="!isRecording && previewStream" class="w-full flex items-center justify-center mb-4">
-        <video
-          ref="livePreviewRef"
-          autoplay
-          playsinline
-          muted
-          class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300 w-full max-w-xl"
-          style="aspect-ratio: 16/9;"
-        ></video>
-      </div>
-
-      <div class="mb-4 flex items-center">
-        <input 
-          type="checkbox" 
-          id="screenShareToggle" 
-          v-model="recordScreenAndCamera" 
-          :disabled="isRecording" 
-          class="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-blue-600 ring-offset-gray-800"
-        >
-        <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
-          Record Screen + Camera (switchable)
-        </label>
-      </div>
-
-      <!-- Device selection controls -->
-      <div class="flex flex-wrap gap-4 mb-4 w-full justify-center">
-        <div>
-          <label class="block text-gray-300 text-sm mb-1">Microphone:</label>
-          <select v-model="selectedAudioDeviceId" class="rounded px-2 py-1 border border-gray-400 text-black">
-            <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-gray-300 text-sm mb-1">Camera:</label>
-          <select v-model="selectedVideoDeviceId" class="rounded px-2 py-1 border border-gray-400 text-black">
-            <option v-for="d in videoDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap justify-center gap-2 mb-4">
-        <button @click="startRecording" class="btn btn-blue" :disabled="isRecording">Start Recording</button>
-        <button @click="stopRecording" class="btn btn-red" :disabled="!isRecording">Stop Recording</button>
-        <button 
-          @click="switchVideoSource" 
-          class="btn btn-yellow" 
-          :disabled="!isRecording || !recordScreenAndCamera"
-          title="Switch between camera and screen video"
-        >
-          Switch Video Source
-        </button>
-      </div>
-
-      <FilterSelector @filter-applied="applyFilter" :filters="filters" />
-      <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
+  <div class="w-full max-w-3xl flex flex-col items-center justify-center">
+    <!-- Single Live Preview (always shown) -->
+    <div class="w-full flex items-center justify-center mb-4">
+      <canvas
+        ref="previewCanvasRef"
+        :width="320"
+        :height="180"
+        class="rounded-2xl shadow-lg border border-blue-800/40 bg-black transition-all duration-300 w-full max-w-xl aspect-video"
+      ></canvas>
     </div>
+    <!-- Hidden Recording Canvas -->
+    <canvas ref="canvasRef" :width="2688" :height="1520" class="hidden"></canvas>
+    <!-- Screen+Camera Toggle -->
+    <div class="mb-4 flex items-center">
+      <input 
+        type="checkbox" 
+        id="screenShareToggle" 
+        v-model="recordScreenAndCamera" 
+        :disabled="isRecording" 
+        class="mr-2 h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-blue-600 ring-offset-gray-800"
+      >
+      <label for="screenShareToggle" class="text-sm font-medium text-gray-300">
+        Record Screen + Camera (switchable)
+      </label>
+    </div>
+    <!-- Device Selection -->
+    <div class="flex flex-wrap gap-4 mb-4 w-full justify-center">
+      <div>
+        <label class="block text-gray-300 text-sm mb-1">Microphone:</label>
+        <select v-model="selectedAudioDeviceId" class="text-white rounded px-2 py-1 border border-gray-400 text-black">
+          <option v-for="d in audioDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-gray-300 text-sm mb-1">Camera:</label>
+        <select v-model="selectedVideoDeviceId" class="text-white rounded px-2 py-1 border border-gray-400 text-black">
+          <option v-for="d in videoDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
+        </select>
+      </div>
+    </div>
+    <!-- Controls -->
+    <div class="flex flex-wrap justify-center gap-2 mb-4">
+      <button @click="startRecording" class="px-4 py-2 rounded bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed" :disabled="isRecording">Start Recording</button>
+      <button @click="stopRecording" class="px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed" :disabled="!isRecording">Stop Recording</button>
+      <button 
+        @click="switchVideoSource" 
+        class="px-4 py-2 rounded bg-yellow-500 text-black font-bold hover:bg-yellow-600 transition disabled:bg-gray-400 disabled:cursor-not-allowed" 
+        :disabled="!isRecording || !recordScreenAndCamera"
+        title="Switch between camera and screen video"
+      >
+        Switch Video Source
+      </button>
+    </div>
+    <FilterSelector @filter-applied="applyFilter" :filters="filters" />
+    <DownloadButton :video-url="videoUrl" v-if="videoUrl" />
   </div>
 </template>
 
@@ -116,7 +103,7 @@ export default defineComponent({
     cameraVideoEl.muted = true;
 
     const canvasRef = ref<HTMLCanvasElement | null>(null); // Offscreen for recording
-    const previewCanvasRef = ref<HTMLCanvasElement | null>(null); // Visible preview
+    const previewCanvasRef = ref<HTMLCanvasElement | null>(null);
     const mediaRecorder = shallowRef<MediaRecorder | null>(null);
     const recordedChunks = ref<Blob[]>([]);
     const isRecording = ref(false);
@@ -251,7 +238,6 @@ export default defineComponent({
         const ctx = previewCanvasRef.value.getContext('2d');
         if (ctx) drawFrame(ctx, PREVIEW_WIDTH, PREVIEW_HEIGHT);
       }
-
       animationFrameId.value = requestAnimationFrame(drawToCanvas);
     };
 
@@ -482,6 +468,15 @@ export default defineComponent({
       window.addEventListener('keydown', handleKeydown);
       if (gamepadAnimationId) cancelAnimationFrame(gamepadAnimationId);
       pollGamepad();
+      // Start drawing to canvas for preview
+      if (!animationFrameId.value) {
+        drawToCanvas();
+      }
+    });
+    watch([userVideoStream, screenVideoStream, recordScreenAndCamera, selectedVideoDeviceId], () => {
+      if (!animationFrameId.value) {
+        drawToCanvas();
+      }
     });
     onUnmounted(() => {
       window.removeEventListener('keydown', handleKeydown);
@@ -489,10 +484,16 @@ export default defineComponent({
         cancelAnimationFrame(gamepadAnimationId);
         gamepadAnimationId = null;
       }
+      if (animationFrameId.value) {
+        cancelAnimationFrame(animationFrameId.value);
+        animationFrameId.value = null;
+      }
     });
 
+    // Watch for camera selection and recording state to update preview stream
     watch([selectedVideoDeviceId, isRecording], async ([deviceId, recording]) => {
-      if (!recording && deviceId) {
+      // Always update preview stream to show the correct camera
+      if (deviceId) {
         // Stop previous preview stream
         if (previewStream.value) {
           previewStream.value.getTracks().forEach(track => track.stop());
@@ -504,18 +505,36 @@ export default defineComponent({
             audio: false
           });
           previewStream.value = stream;
-          if (livePreviewRef.value) {
-            livePreviewRef.value.srcObject = stream;
-          }
         } catch (e) {
           // Ignore errors (e.g., permission denied)
         }
       }
-      // Stop preview when recording starts
-      if (recording && previewStream.value) {
-        previewStream.value.getTracks().forEach(track => track.stop());
-        previewStream.value = null;
-        if (livePreviewRef.value) livePreviewRef.value.srcObject = null;
+      // Stop preview when recording stops (optional, but here we keep preview always on)
+    });
+
+    // Always set the video element's srcObject to the preview stream
+    watch([previewStream, livePreviewRef], ([stream, videoEl]) => {
+      if (videoEl) {
+        videoEl.srcObject = stream || null;
+      }
+    });
+    watch(selectedVideoDeviceId, async (deviceId) => {
+      if (!deviceId) return;
+      // Stop previous stream
+      if (userVideoStream.value) {
+        userVideoStream.value.getTracks().forEach(track => track.stop());
+        userVideoStream.value = null;
+      }
+      try {
+        userVideoStream.value = await navigator.mediaDevices.getUserMedia({
+          video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: deviceId } },
+          audio: false
+        });
+        videoEl.srcObject = userVideoStream.value;
+        await videoEl.play();
+        activeDisplaySource.value = 'camera';
+      } catch (e) {
+        // Ignore errors (e.g., permission denied)
       }
     });
 
@@ -540,52 +559,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-.video-recorder {
-  min-height: 100vh;
-  min-width: 100vw;
-  transition: box-shadow 0.2s;
-  /* The background and centering are handled by the template classes */
-}
-
-.btn {
-  padding: 0.5rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.2s;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-}
-
-.btn-blue {
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-  color: white;
-  box-shadow: 0 0 10px #3b82f6aa;
-}
-.btn-blue:hover {
-  box-shadow: 0 0 15px #3b82f6;
-}
-
-.btn-red {
-  background: linear-gradient(135deg, #7f1d1d, #ef4444);
-  color: white;
-  box-shadow: 0 0 10px #ef4444aa;
-}
-.btn-red:hover {
-  box-shadow: 0 0 15px #ef4444;
-}
-
-.btn-yellow {
-  background: linear-gradient(135deg, #78350f, #facc15);
-  color: #111827;
-  box-shadow: 0 0 10px #facc15aa;
-}
-.btn-yellow:hover {
-  box-shadow: 0 0 15px #facc15;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

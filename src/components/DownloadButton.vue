@@ -4,16 +4,15 @@
       <video
         :src="videoUrl"
         controls
-        class="rounded-lg border border-blue-700 shadow-lg w-full max-w-xl mb-2"
-        style="background:black"
+        class="rounded-lg border border-blue-700 shadow-lg w-full max-w-xl mb-2 bg-black"
         width="640"
         height="360"
       ></video>
     </div>
     <div class="flex flex-wrap gap-2 items-center mb-2">
-      <input v-model="metaTitle" placeholder="Title" class="rounded px-2 py-1 border border-gray-400 text-black" />
-      <input v-model="metaComment" placeholder="Comment" class="rounded px-2 py-1 border border-gray-400 text-black" />
-      <input v-model="metaDate" type="datetime-local" class="rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="metaTitle" placeholder="Title" class="text-white rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="metaComment" placeholder="Comment" class="text-white rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="metaDate" type="datetime-local" class="text-white rounded px-2 py-1 border border-gray-400 text-black" />
     </div>
     <div class="flex items-center gap-2 mb-2">
       <input type="checkbox" id="extractTracks" v-model="extractTracks" class="rounded border-gray-400" />
@@ -32,47 +31,47 @@
       </label>
     </div>
     <div class="flex flex-wrap gap-4 items-center mb-4">
-      <span class="text-gray-200 font-semibold mr-2">Choose Framerate:</span>
+      <span class="text-white text-gray-200 font-semibold mr-2">Choose Framerate:</span>
       <label v-for="option in framerateOptions" :key="option.value" class="flex items-center gap-1 px-2 py-1 rounded bg-gray-800 text-gray-200 cursor-pointer hover:bg-blue-900 transition">
         <input
           type="radio"
           v-model="selectedFramerate"
           :value="option.value"
-          class="accent-blue-500 rounded border-gray-400"
+          class="text-white accent-blue-500 rounded border-gray-400"
         />
         <span class="text-sm">{{ option.label }}</span>
       </label>
     </div>
     <div class="flex flex-wrap gap-2 items-center mb-2">
-      <input v-model="trimStart" placeholder="Start (e.g. 00:00:05)" class="rounded px-2 py-1 border border-gray-400 text-black" />
-      <input v-model="trimEnd" placeholder="End (e.g. 00:00:20)" class="rounded px-2 py-1 border border-gray-400 text-black" />
-      <label class="text-sm text-gray-200">Trim Video</label>
+      <input v-model="trimStart" placeholder="Start (e.g. 00:00:05)" class="placeholder-text-white text-white rounded px-2 py-1 border border-gray-400 text-black" />
+      <input v-model="trimEnd" placeholder="End (e.g. 00:00:20)" class="text-white rounded px-2 py-1 border border-gray-400 text-black" />
+      <label class="text-white text-sm text-gray-200">Trim Video</label>
     </div>
     <div class="flex flex-wrap gap-2 items-center mb-4">
       <button
         @click="downloadVideo('webm')"
-        class="download-btn"
+        class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         :disabled="isConverting"
       >
         Download WebM
       </button>
       <button
         @click="downloadVideo('mp4')"
-        class="download-btn"
+        class="px-4 py-2 rounded-lg bg-green-600 text-white font-bold shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         :disabled="isConverting"
       >
         Download MP4
       </button>
       <button
         @click="downloadVideo('hls')"
-        class="download-btn"
+        class="px-4 py-2 rounded-lg bg-purple-600 text-white font-bold shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         :disabled="isConverting"
       >
         Download HLS (ZIP)
       </button>
       <button
         @click="downloadThumbnail"
-        class="download-btn"
+        class="px-4 py-2 rounded-lg bg-yellow-400 text-black font-bold shadow hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-300 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         :disabled="isConverting"
       >
         Download Thumbnail
@@ -462,24 +461,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-.download-btn {
-  padding: 0.5rem 1.2rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  background: #2563eb; /* Tailwind blue-600 */
-  color: #fff;
-  transition: background 0.2s, color 0.2s, opacity 0.2s;
-}
-.download-btn:hover {
-  background: #1d4ed8; /* Tailwind blue-700 */
-}
-.download-btn:disabled {
-  background: #9ca3af; /* Tailwind gray-400 */
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-</style>

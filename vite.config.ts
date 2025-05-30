@@ -3,11 +3,13 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'; // Import the plugin
-
+import tailwindcss from "@tailwindcss/vite";
 // Replace '<REPOSITORY_NAME>' with the actual name of your GitHub repository
 const repositoryName = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '';
 export default defineConfig({
-  plugins: [vue(),
+  plugins: [
+        tailwindcss(),
+        vue(),
         VitePWA({
       // Service Worker Registration Strategy
       registerType: 'autoUpdate', // Automatically update the service worker without prompting the user.
