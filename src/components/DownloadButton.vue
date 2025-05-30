@@ -109,7 +109,10 @@ export default defineComponent({
     const isConverting = ref(false);
     const metaTitle = ref('');
     const metaComment = ref('');
-    const metaDate = ref(new Date().toISOString().slice(0, 16)); // For datetime-local input
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const metaDate = ref(localDate);
     const ffmpegInstanceRef = shallowRef<FFmpeg | null>(null); // Use shallowRef
     let ffmpegLoadPromise: Promise<void> | null = null;
     const extractTracks = ref(false); // New reactive property for checkbox
@@ -190,17 +193,23 @@ export default defineComponent({
       return ffmpegInstanceRef.value;
     };
 
-    const triggerDownload = (url: string, filename: string) => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
-    };
+    const triggerDownload = (urlOrBlob: string | Blob, filename: string) => {
+  let url: string;
+  if (typeof urlOrBlob === 'string') {
+    url = urlOrBlob;
+  } else {
+    url = URL.createObjectURL(urlOrBlob);
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+};
 
     const downloadVideo = async (format: 'webm' | 'mp4' | 'hls') => {
       if (isConverting.value) {

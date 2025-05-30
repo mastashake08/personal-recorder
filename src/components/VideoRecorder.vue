@@ -11,7 +11,7 @@
       <canvas ref="canvasRef" :width="2688" :height="1520" style="display:none;"></canvas>
 
       <!-- Live camera preview before recording -->
-      <div v-if="!isRecording && userVideoStream" class="w-full flex items-center justify-center mb-4">
+      <div v-if="!isRecording && previewStream" class="w-full flex items-center justify-center mb-4">
         <video
           ref="livePreviewRef"
           autoplay
@@ -71,7 +71,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, shallowRef } from 'vue';
+import { defineComponent, ref, onMounted, onUnmounted, shallowRef, watch } from 'vue';
 import FilterSelector from './FilterSelector.vue';
 import DownloadButton from './DownloadButton.vue';
 
@@ -149,6 +149,8 @@ export default defineComponent({
     const videoDevices = ref<MediaDeviceInfo[]>([]);
     const selectedAudioDeviceId = ref<string | null>(null);
     const selectedVideoDeviceId = ref<string | null>(null);
+    const livePreviewRef = ref<HTMLVideoElement | null>(null);
+    const previewStream = shallowRef<MediaStream | null>(null);
 
     onMounted(async () => {
       window.addEventListener('keydown', handleKeydown);
@@ -489,10 +491,33 @@ export default defineComponent({
       }
     });
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const now = new Date();
-    const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const metaDate = ref(localDate);
+    watch([selectedVideoDeviceId, isRecording], async ([deviceId, recording]) => {
+      if (!recording && deviceId) {
+        // Stop previous preview stream
+        if (previewStream.value) {
+          previewStream.value.getTracks().forEach(track => track.stop());
+          previewStream.value = null;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: deviceId } },
+            audio: false
+          });
+          previewStream.value = stream;
+          if (livePreviewRef.value) {
+            livePreviewRef.value.srcObject = stream;
+          }
+        } catch (e) {
+          // Ignore errors (e.g., permission denied)
+        }
+      }
+      // Stop preview when recording starts
+      if (recording && previewStream.value) {
+        previewStream.value.getTracks().forEach(track => track.stop());
+        previewStream.value = null;
+        if (livePreviewRef.value) livePreviewRef.value.srcObject = null;
+      }
+    });
 
     return {
       canvasRef,
@@ -509,6 +534,8 @@ export default defineComponent({
       videoDevices,
       selectedAudioDeviceId,
       selectedVideoDeviceId,
+      livePreviewRef,
+      previewStream,
     };
   },
 });
