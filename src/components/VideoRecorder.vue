@@ -375,12 +375,14 @@ export default defineComponent({
       };
       mediaRecorder.value.start();
       isRecording.value = true;
+      enterCameraPiP();
     };
 
     const stopRecording = () => {
       if (mediaRecorder.value && mediaRecorder.value.state !== "inactive") {
         mediaRecorder.value.stop();
       }
+      exitCameraPiP();
       cleanupStreams(); 
       
       isRecording.value = false;
@@ -537,6 +539,44 @@ export default defineComponent({
         // Ignore errors (e.g., permission denied)
       }
     });
+
+    const enterCameraPiP = async () => {
+      if (videoEl && document.pictureInPictureEnabled) {
+        // Ensure the video element has a stream and is loaded
+        if (videoEl.srcObject && videoEl.readyState >= 1) {
+          try {
+            await videoEl.requestPictureInPicture();
+          } catch (err) {
+            console.warn('Could not enter Picture-in-Picture:', err);
+          }
+        } else {
+          // Wait for metadata to load, then request PiP
+          videoEl.addEventListener(
+            'loadedmetadata',
+            async function handler() {
+              videoEl.removeEventListener('loadedmetadata', handler);
+              try {
+                //await cameraVideoEl.play();
+                await videoEl.requestPictureInPicture();
+              } catch (err) {
+                console.warn('Could not enter Picture-in-Picture after metadata:', err);
+              }
+            }
+          );
+          
+        }
+      }
+    };
+
+    const exitCameraPiP = async () => {
+      if (document.pictureInPictureElement === cameraVideoEl) {
+        try {
+          await document.exitPictureInPicture();
+        } catch (err) {
+          // Ignore if not in PiP
+        }
+      }
+    };
 
     return {
       canvasRef,
